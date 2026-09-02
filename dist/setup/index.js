@@ -3226,7 +3226,7 @@ exports.BinaryWriter = BinaryWriter;
 
 /***/ }),
 
-/***/ 257:
+/***/ 2638:
 /***/ ((__unused_webpack_module, exports) => {
 
 
@@ -3686,7 +3686,7 @@ Object.defineProperty(exports, "getOneofValue", ({ enumerable: true, get: functi
 Object.defineProperty(exports, "clearOneofValue", ({ enumerable: true, get: function () { return oneof_1.clearOneofValue; } }));
 Object.defineProperty(exports, "getSelectedOneofValue", ({ enumerable: true, get: function () { return oneof_1.getSelectedOneofValue; } }));
 // Enum object type guard and reflection util, may be interesting to the user.
-var enum_object_1 = __nccwpck_require__(257);
+var enum_object_1 = __nccwpck_require__(2638);
 Object.defineProperty(exports, "listEnumValues", ({ enumerable: true, get: function () { return enum_object_1.listEnumValues; } }));
 Object.defineProperty(exports, "listEnumNames", ({ enumerable: true, get: function () { return enum_object_1.listEnumNames; } }));
 Object.defineProperty(exports, "listEnumNumbers", ({ enumerable: true, get: function () { return enum_object_1.listEnumNumbers; } }));
@@ -43140,7 +43140,39 @@ async function getVersionsDist(dlUrl) {
     return (await http.getJson(dlUrl)).result;
 }
 
+;// CONCATENATED MODULE: ./src/checksum.ts
+
+
+
+// Verifies filePath's sha256 digest against expectedSha256 (as published in
+// the go.dev/dl JSON listing). Throws on mismatch and best-effort removes
+// the file so a corrupted or tampered archive isn't left for a later step.
+async function verifyChecksum(filePath, expectedSha256) {
+    const actual = await hashFile(filePath);
+    const expected = expectedSha256.toLowerCase();
+    if (actual !== expected) {
+        try {
+            external_fs_default().unlinkSync(filePath);
+        }
+        catch (err) {
+            core_debug(`Failed to remove ${filePath} after checksum mismatch: ${err.message}`);
+        }
+        throw new Error(`Checksum mismatch for ${filePath}: expected sha256 ${expected}, got ${actual}. ` +
+            'The downloaded Go archive may be corrupted or tampered with.');
+    }
+}
+function hashFile(filePath) {
+    return new Promise((resolve, reject) => {
+        const hash = external_crypto_default().createHash('sha256');
+        external_fs_default().createReadStream(filePath)
+            .on('error', reject)
+            .on('data', chunk => hash.update(chunk))
+            .on('end', () => resolve(hash.digest('hex')));
+    });
+}
+
 ;// CONCATENATED MODULE: ./src/installer.ts
+
 
 
 
@@ -43354,6 +43386,10 @@ async function installGoVersion(info, auth, arch, toolName = 'go') {
     const tempDir = process.env.RUNNER_TEMP || '.';
     const fileName = isWindows ? external_path_.join(tempDir, info.fileName) : undefined;
     const downloadPath = await downloadTool(info.downloadUrl, fileName, auth);
+    if (info.sha256) {
+        core_info('Verifying checksum...');
+        await verifyChecksum(downloadPath, info.sha256);
+    }
     core_info('Extracting Go...');
     let extPath = await extractGoArchive(downloadPath);
     core_info(`Successfully extracted go to ${extPath}`);
@@ -43476,7 +43512,8 @@ async function getInfoFromDist(versionSpec, arch, goDownloadBaseUrl) {
         type: 'dist',
         downloadUrl: downloadUrl,
         resolvedVersion: version.version,
-        fileName: version.files[0].filename
+        fileName: version.files[0].filename,
+        sha256: version.files[0].sha256
     };
 }
 function getInfoFromDirectDownload(versionSpec, arch, goDownloadBaseUrl) {

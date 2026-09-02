@@ -11,6 +11,7 @@ import os from 'os';
 import {StableReleaseAlias, isSelfHosted} from './utils.js';
 import {Architecture} from './types.js';
 import {getVersionsDist} from './go-version-fetch.js';
+import {verifyChecksum} from './checksum.js';
 
 export const GOTOOLCHAIN_ENV_VAR = 'GOTOOLCHAIN';
 export const GOTOOLCHAIN_LOCAL_VAL = 'local';
@@ -34,6 +35,7 @@ export interface IGoVersionFile {
   // darwin, linux, windows
   os: string;
   arch: string;
+  sha256?: string;
 }
 
 export interface IGoVersion {
@@ -47,6 +49,7 @@ export interface IGoVersionInfo {
   downloadUrl: string;
   resolvedVersion: string;
   fileName: string;
+  sha256?: string;
 }
 
 export async function getGo(
@@ -338,6 +341,11 @@ async function installGoVersion(
 
   const downloadPath = await tc.downloadTool(info.downloadUrl, fileName, auth);
 
+  if (info.sha256) {
+    core.info('Verifying checksum...');
+    await verifyChecksum(downloadPath, info.sha256);
+  }
+
   core.info('Extracting Go...');
   let extPath = await extractGoArchive(downloadPath);
   core.info(`Successfully extracted go to ${extPath}`);
@@ -526,7 +534,8 @@ async function getInfoFromDist(
     type: 'dist',
     downloadUrl: downloadUrl,
     resolvedVersion: version.version,
-    fileName: version.files[0].filename
+    fileName: version.files[0].filename,
+    sha256: version.files[0].sha256
   };
 }
 

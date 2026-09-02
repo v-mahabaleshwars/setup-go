@@ -85,10 +85,15 @@ jest.unstable_mockModule('../src/go-version-fetch.js', () => ({
   getVersionsDist: jest.fn()
 }));
 
+jest.unstable_mockModule('../src/checksum.js', () => ({
+  verifyChecksum: jest.fn()
+}));
+
 const core = await import('@actions/core');
 const io = await import('@actions/io');
 const tc = await import('@actions/tool-cache');
 const vf = await import('../src/go-version-fetch.js');
+const cs = await import('../src/checksum.js');
 const main = await import('../src/main.js');
 const im = await import('../src/installer.js');
 const osm = (await import('os')).default;
@@ -129,6 +134,7 @@ describe('setup-go', () => {
   let execFileSpy: jest.SpiedFunction<typeof cp.execFileSync>;
   let getManifestSpy: jest.Mock;
   let httpmGetJsonSpy: jest.Mock;
+  let checksumSpy: jest.Mock;
 
   beforeAll(async () => {
     process.env['GITHUB_ENV'] = ''; // Stub out Environment file functionality so we can verify it writes to standard out (toolkit is backwards compatible)
@@ -177,6 +183,8 @@ describe('setup-go', () => {
     cacheSpy = tc.cacheDir as jest.Mock;
     getSpy = vf.getVersionsDist as jest.Mock;
     getManifestSpy = tc.getManifestFromRepo as jest.Mock;
+    checksumSpy = cs.verifyChecksum as jest.Mock;
+    checksumSpy.mockResolvedValue(undefined);
 
     // httm
     httpmGetJsonSpy = httpClientGetJson;
@@ -478,6 +486,43 @@ describe('setup-go', () => {
       undefined
     );
     expect(cnSpy).toHaveBeenCalledWith(`::add-path::${expPath}${osm.EOL}`);
+  });
+
+  it('verifies the sha256 checksum when downloading from dist', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.13.1';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    extractTarSpy.mockImplementation(() => '/some/other/temp/path');
+    cacheSpy.mockImplementation(() => path.normalize('/cache/go/1.13.1/x64'));
+
+    await main.run();
+
+    expect(checksumSpy).toHaveBeenCalledWith(
+      '/some/temp/path',
+      '94f874037b82ea5353f4061e543681a0e79657f787437974214629af8407d124'
+    );
+  });
+
+  it('fails the run when the downloaded archive fails checksum verification', async () => {
+    os.platform = 'linux';
+    os.arch = 'x64';
+
+    inputs['go-version'] = '1.13.1';
+
+    findSpy.mockImplementation(() => '');
+    dlSpy.mockImplementation(() => '/some/temp/path');
+    checksumSpy.mockRejectedValueOnce(new Error('Checksum mismatch'));
+
+    await main.run();
+
+    expect(cnSpy).toHaveBeenCalledWith(
+      '::error::Failed to download version 1.13.1: Error: Checksum mismatch' +
+        osm.EOL
+    );
   });
 
   it('does not find a version that does not exist', async () => {
