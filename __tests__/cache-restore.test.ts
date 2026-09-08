@@ -150,4 +150,96 @@ describe('restoreCache', () => {
       'Dependencies file is not found in /test/workspace. Supported file pattern: go.mod'
     );
   });
+
+  describe('cache key', () => {
+    let originalRunnerOs: string | undefined;
+
+    beforeEach(() => {
+      originalRunnerOs = process.env.RUNNER_OS;
+      // Non-Linux keeps the ImageOS segment out of the key.
+      process.env.RUNNER_OS = 'Windows';
+      hashFilesSpy.mockImplementation(() => Promise.resolve('file_hash'));
+      restoreCacheSpy.mockImplementation(() => Promise.resolve(''));
+    });
+
+    afterEach(() => {
+      process.env.RUNNER_OS = originalRunnerOs;
+    });
+
+    const primaryKeyOf = () => restoreCacheSpy.mock.calls[0][1];
+
+    it('should fall back to the host architecture when none is given', async () => {
+      await cacheRestore.restoreCache(
+        versionSpec,
+        packageManager,
+        cacheDependencyPath
+      );
+
+      expect(primaryKeyOf()).toContain(`-${process.arch}-`);
+    });
+
+    it('should use the requested architecture instead of the host one', async () => {
+      await cacheRestore.restoreCache(
+        versionSpec,
+        packageManager,
+        cacheDependencyPath,
+        '386'
+      );
+
+      expect(primaryKeyOf()).toContain('-386-');
+      expect(primaryKeyOf()).not.toContain(`-${process.arch}-`);
+    });
+
+    it('should append the cache key suffix', async () => {
+      await cacheRestore.restoreCache(
+        versionSpec,
+        packageManager,
+        cacheDependencyPath,
+        undefined,
+        'linux-arm64'
+      );
+
+      expect(primaryKeyOf()).toBe(
+        `setup-go-Windows-${process.arch}-go-${versionSpec}-file_hash-linux-arm64`
+      );
+    });
+
+    it('should ignore a blank cache key suffix', async () => {
+      await cacheRestore.restoreCache(
+        versionSpec,
+        packageManager,
+        cacheDependencyPath,
+        undefined,
+        '   '
+      );
+
+      expect(primaryKeyOf()).toBe(
+        `setup-go-Windows-${process.arch}-go-${versionSpec}-file_hash`
+      );
+    });
+
+    it('should throw if the cache key suffix contains a comma', async () => {
+      await expect(
+        cacheRestore.restoreCache(
+          versionSpec,
+          packageManager,
+          cacheDependencyPath,
+          undefined,
+          'linux,arm64'
+        )
+      ).rejects.toThrow("cannot contain commas, but got 'linux,arm64'");
+    });
+
+    it('should throw if the cache key suffix makes the key too long', async () => {
+      await expect(
+        cacheRestore.restoreCache(
+          versionSpec,
+          packageManager,
+          cacheDependencyPath,
+          undefined,
+          'a'.repeat(513)
+        )
+      ).rejects.toThrow('the cache service allows at most 512');
+    });
+  });
 });

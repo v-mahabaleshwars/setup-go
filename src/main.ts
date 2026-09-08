@@ -23,11 +23,11 @@ export async function run() {
     const cache = core.getBooleanInput('cache');
     core.info(`Setup go version spec ${versionSpec}`);
 
-    let arch = core.getInput('architecture') as Architecture;
-
-    if (!arch) {
-      arch = os.arch() as Architecture;
-    }
+    // Kept separate from the resolved value: the cache key only reflects the
+    // architecture when the user asked for one explicitly, so keys generated
+    // for the default (host) architecture stay unchanged.
+    const archInput = core.getInput('architecture') as Architecture;
+    const arch = archInput || (os.arch() as Architecture);
 
     if (versionSpec) {
       const token = core.getInput('token');
@@ -80,11 +80,14 @@ export async function run() {
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
+      const cacheKeySuffix = core.getInput('cache-key-suffix');
       try {
         await restoreCache(
           parseGoVersion(goVersion),
           packageManager,
-          cacheDependencyPath
+          cacheDependencyPath,
+          archInput || undefined,
+          cacheKeySuffix
         );
       } catch (error) {
         core.warning(`Restore cache failed: ${(error as Error).message}`);

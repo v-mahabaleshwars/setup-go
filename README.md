@@ -58,6 +58,10 @@ See [action.yml](action.yml).
     # Path to dependency files for caching
     cache-dependency-path: 'go.sum'
     
+    # Extra value appended to the generated cache key, to keep caches separate
+    # for builds that share a runner but produce different build outputs
+    cache-key-suffix: ''
+    
     # Architecture to install (auto-detected if not specified)
     architecture: 'x64'
     
@@ -127,9 +131,11 @@ The `cache` input is optional, and caching is enabled by default. To disable cac
 
 By default, the action looks for `go.mod` in the repository root and uses its hash as part of the cache key. Use the `cache-dependency-path` input when you have multiple dependency files, or when they’re located in different subdirectories. This input supports glob patterns.
 
+The cache key also includes the runner's operating system and architecture. When several jobs run on the same runner but produce different build outputs — for example cross-compiling to multiple `GOOS`/`GOARCH` targets — they would otherwise share a single cache entry. Use the `cache-key-suffix` input to keep those caches separate.
+
 If caching cannot be performed for any reason, the action logs a warning and continues workflow execution.
 
-For examples of using `cache-dependency-path`, see the [Caching](docs/advanced-usage.md#caching) section of the [Advanced usage](docs/advanced-usage.md) guide.
+For examples of using `cache-dependency-path` and `cache-key-suffix`, see the [Caching](docs/advanced-usage.md#caching) section of the [Advanced usage](docs/advanced-usage.md) guide.
 
 
 ## Advanced usage

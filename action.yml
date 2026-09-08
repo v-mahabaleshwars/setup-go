@@ -17,6 +17,8 @@ inputs:
     default: true
   cache-dependency-path:
     description: 'Used to specify the path to a dependency file (e.g., go.mod, go.sum)'
+  cache-key-suffix:
+    description: 'Extra value appended to the generated cache key. Use it to keep caches separate for builds that share a runner but produce different build outputs, such as cross-compiled GOOS/GOARCH targets, CGO settings or build tags. Prefer a small, stable set of values; high-cardinality values create a new cache entry on every run.'
   architecture:
     description: 'Target architecture for Go to use. Examples: x86, x64. Will use system architecture by default.'
   go-download-base-url:

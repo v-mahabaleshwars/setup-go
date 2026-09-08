@@ -278,24 +278,57 @@ steps:
 
 ### Multi-target builds
 
-`cache-dependency-path` isn’t limited to dependency files (like `go.sum`). It can also include files that capture build settings (for example, `GOOS`/`GOARCH`). This allows separate caches per target platform (OS/architecture) and helps avoid reusing caches across incompatible builds.
+The generated cache key includes the architecture of the **runner**, not the architecture you are building *for*. When one job cross-compiles several targets, or when a matrix builds several targets on the same runner, every leg produces the same cache key. The first leg to finish populates the entry; because cache keys are immutable, the remaining legs restore artifacts they cannot use and their own build outputs are never saved.
+
+Use `cache-key-suffix` to give each target its own cache entry:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.25'
+          cache-key-suffix: ${{ matrix.goarch }}
+      - run: go build ./...
+        env:
+          GOARCH: ${{ matrix.goarch }}
+```
+
+The suffix is not limited to the target architecture. Any build setting that changes the contents of the build cache is a candidate, for example `CGO_ENABLED` or build tags:
+
+```yaml
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.25'
+          cache-key-suffix: ${{ matrix.goos }}-${{ matrix.goarch }}-cgo${{ matrix.cgo }}
+```
+
+> **Note:** Use a small, stable set of suffix values. A value that changes on every run (such as a commit SHA or run ID) creates a new cache entry each time, which consumes the repository cache quota and can evict other caches.
+
+Alternatively, `cache-dependency-path` can include a file that captures the build settings, so the hash itself differs per target:
 
 ```yaml
 env:
-  GOOS: ...
-  GOARCH: ...
+  GOOS: linux
+  GOARCH: arm64
 
 steps:
+  - uses: actions/checkout@v7
   - run: echo "$GOOS $GOARCH" > env.txt
 
-  - uses: actions/checkout@v7
   - uses: actions/setup-go@v7
     with:
       go-version: '1.25'
       cache-dependency-path: |
         go.sum
         env.txt
-  - run: go run hello.go    
+  - run: go build ./...
 ```
 
 ### Cache invalidation on source changes
