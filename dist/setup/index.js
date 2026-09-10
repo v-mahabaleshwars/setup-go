@@ -100440,7 +100440,18 @@ var State;
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
+    Outputs["GoVersion"] = "go-version";
     Outputs["CacheHit"] = "cache-hit";
+    Outputs["GoEnv"] = "go-env";
+    Outputs["GoPath"] = "go-path";
+    Outputs["GoBin"] = "go-bin";
+    Outputs["GoBinPath"] = "go-bin-path";
+    Outputs["GoRoot"] = "go-root";
+    Outputs["GoCache"] = "go-cache";
+    Outputs["GoModCache"] = "go-mod-cache";
+    Outputs["GoOs"] = "go-os";
+    Outputs["GoArch"] = "go-arch";
+    Outputs["GoToolDir"] = "go-tool-dir";
 })(Outputs || (Outputs = {}));
 
 ;// CONCATENATED MODULE: ./src/package-managers.ts
@@ -100567,6 +100578,7 @@ const findDependencyFile = (packageManager) => {
 
 
 
+
 async function run() {
     try {
         //
@@ -100606,10 +100618,11 @@ async function run() {
         else {
             core_info('[warning]go-version input was not specified. The action will try to use pre-installed version.');
         }
-        const added = await addBinToPath();
-        core_debug(`add bin ${added}`);
         const goPath = await which('go');
         const goVersion = (external_child_process_default().execSync(`${goPath} version`) || '').toString();
+        const goEnv = readGoEnv(goPath);
+        const added = await addBinToPath(goEnv?.['GOPATH']);
+        core_debug(`add bin ${added}`);
         if (cache && isCacheFeatureAvailable()) {
             const packageManager = 'default';
             const cacheDependencyPath = getInput('cache-dependency-path');
@@ -100625,17 +100638,61 @@ async function run() {
         core_info(`##[add-matcher]${matchersPath}`);
         // output the version actually being used
         core_info(goVersion);
-        setOutput('go-version', parseGoVersion(goVersion));
-        startGroup('go env');
-        const goEnv = (external_child_process_default().execSync(`${goPath} env`) || '').toString();
-        core_info(goEnv);
-        endGroup();
+        setOutput(Outputs.GoVersion, parseGoVersion(goVersion));
+        if (goEnv) {
+            setGoEnvOutputs(goEnv);
+        }
     }
     catch (error) {
         setFailed(error.message);
     }
 }
-async function addBinToPath() {
+/**
+ * Reads the Go environment as a single `go env -json` invocation and logs it.
+ *
+ * `go env -json` is only available since Go 1.9, and the action still supports
+ * older releases, so any failure is reported as a warning and leaves the Go
+ * environment outputs unset instead of failing the whole action.
+ */
+function readGoEnv(goPath) {
+    let goEnv;
+    try {
+        const rawGoEnv = (external_child_process_default().execSync(`${goPath} env -json`) || '').toString();
+        const parsed = JSON.parse(rawGoEnv);
+        if (typeof parsed !== 'object' ||
+            parsed === null ||
+            Array.isArray(parsed)) {
+            throw new Error("'go env -json' did not return a JSON object");
+        }
+        goEnv = parsed;
+    }
+    catch (error) {
+        warning(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
+        return undefined;
+    }
+    startGroup('go env');
+    core_info(JSON.stringify(goEnv, null, 2));
+    endGroup();
+    return goEnv;
+}
+function setGoEnvOutputs(goEnv) {
+    setOutput(Outputs.GoEnv, JSON.stringify(goEnv));
+    setOutput(Outputs.GoPath, goEnv['GOPATH'] ?? '');
+    setOutput(Outputs.GoBin, goEnv['GOBIN'] ?? '');
+    setOutput(Outputs.GoRoot, goEnv['GOROOT'] ?? '');
+    setOutput(Outputs.GoCache, goEnv['GOCACHE'] ?? '');
+    setOutput(Outputs.GoModCache, goEnv['GOMODCACHE'] ?? '');
+    setOutput(Outputs.GoOs, goEnv['GOOS'] ?? '');
+    setOutput(Outputs.GoArch, goEnv['GOARCH'] ?? '');
+    setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
+    // `go env GOBIN` is empty unless it was explicitly configured. In that case
+    // `go install` falls back to `$GOPATH/bin`, which is the directory this
+    // action creates and adds to the PATH.
+    const goPath = goEnv['GOPATH'];
+    const goBinPath = goEnv['GOBIN'] || (goPath ? external_path_default().join(goPath, 'bin') : '');
+    setOutput(Outputs.GoBinPath, goBinPath);
+}
+async function addBinToPath(goPath) {
     let added = false;
     const g = await which('go');
     core_debug(`which go :${g}:`);
@@ -100643,9 +100700,8 @@ async function addBinToPath() {
         core_debug('go not in the path');
         return added;
     }
-    const buf = external_child_process_default().execSync('go env GOPATH');
-    if (buf.length > 1) {
-        const gp = buf.toString().trim();
+    const gp = goPath ?? external_child_process_default().execSync('go env GOPATH').toString().trim();
+    if (gp) {
         core_debug(`go env GOPATH :${gp}:`);
         if (!external_fs_default().existsSync(gp)) {
             // some of the hosted images have go install but not profile dir

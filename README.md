@@ -139,6 +139,7 @@ For examples of using `cache-dependency-path`, see the [Caching](docs/advanced-u
 - [Check latest version](docs/advanced-usage.md#check-latest-version)
 - [Caching](docs/advanced-usage.md#caching)
 - [Outputs](docs/advanced-usage.md#outputs)
+- [Go environment outputs](docs/advanced-usage.md#go-environment-outputs)
 - [Custom download URL](docs/advanced-usage.md#custom-download-url)
 - [Using `setup-go` on GHES](docs/advanced-usage.md#using-setup-go-on-ghes)
 

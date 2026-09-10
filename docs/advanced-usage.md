@@ -12,6 +12,9 @@
   - [Restore-only caches](advanced-usage.md#restore-only-caches)
   - [Parallel builds](advanced-usage.md#parallel-builds)
 - [Outputs](advanced-usage.md#outputs)
+  - [go-version](advanced-usage.md#go-version)
+  - [cache-hit](advanced-usage.md#cache-hit)
+  - [Go environment outputs](advanced-usage.md#go-environment-outputs)
 - [Custom download URL](advanced-usage.md#custom-download-url)
 - [Using `setup-go` on GHES](advanced-usage.md#using-setup-go-on-ghes)
 
@@ -335,29 +338,6 @@ jobs:
         with:
           go-version: '1.25.5'
           cache: false
-      # Capture Go cache locations
-      - name: Set Go cache variables (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
-      - name: Set Go cache variables (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" | Out-File $env:GITHUB_ENV -Append
-          echo "GO_BUILD_CACHE=$(go env GOCACHE)"   | Out-File $env:GITHUB_ENV -Append
-      # Normalize runner.arch to lowercase to ensure consistent cache keys
-      - name: Normalize runner architecture (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-      - name: Normalize runner architecture (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $arch = "${{ runner.arch }}".ToLower()
-          echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
       - name: Set cache OS suffix for Linux
         if: runner.os == 'Linux'
         shell: bash
@@ -367,9 +347,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: |
-            ${{ env.GO_MOD_CACHE }}
-            ${{ env.GO_BUILD_CACHE }}
-          key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
+            ${{ steps.setup-go.outputs.go-mod-cache }}
+            ${{ steps.setup-go.outputs.go-cache }}
+          key: setup-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-arch }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
       - name: Download modules
         run: go mod download
       - name: Build
@@ -419,6 +399,70 @@ jobs:
           cache: true
       - run: echo "Was the Go cache restored? ${{ steps.go124.outputs.cache-hit }}" # true if cache-hit occurred
 ```
+
+### Go environment outputs
+
+The action runs `go env -json` once after Go is installed and exposes the result, so workflows don't have to shell out to `go env` themselves. This keeps workflows platform agnostic: the same expression works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
+
+The most commonly needed variables are available as individual outputs:
+
+| Output | `go env` variable | Notes |
+| --- | --- | --- |
+| `go-path` | `GOPATH` | |
+| `go-bin` | `GOBIN` | Empty unless `GOBIN` was explicitly configured |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The directory `go install` writes to, and the one this action adds to the `PATH` |
+| `go-root` | `GOROOT` | |
+| `go-cache` | `GOCACHE` | Build cache directory |
+| `go-mod-cache` | `GOMODCACHE` | Module cache directory |
+| `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
+| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` |
+| `go-tool-dir` | `GOTOOLDIR` | Directory holding `compile`, `link`, `vet` and the other toolchain binaries |
+
+```yaml
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        id: setup-go
+        with:
+          go-version: '1.25.5'
+      - run: go install github.com/example/tool@latest
+      - run: ${{ steps.setup-go.outputs.go-bin-path }}/tool --version
+```
+
+### `go-env`
+
+Every other variable is available through the **go-env** output, which contains the full `go env -json` document as a JSON string. Read individual values with the [`fromJSON()`](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#fromjson) expression function:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        id: setup-go
+        with:
+          go-version: '1.25.5'
+      - name: Report the toolchain configuration
+        run: |
+          echo "cgo:      ${{ fromJSON(steps.setup-go.outputs.go-env).CGO_ENABLED }}"
+          echo "proxy:    ${{ fromJSON(steps.setup-go.outputs.go-env).GOPROXY }}"
+          echo "toolchain: ${{ fromJSON(steps.setup-go.outputs.go-env).GOVERSION }}"
+```
+
+Because `go env` reports whatever the toolchain is configured with, the exact set of keys depends on the Go version and the platform. Read keys defensively rather than assuming a fixed schema.
+
+> [!WARNING]
+> `go-env` contains the value of `GOPROXY`, `GOPRIVATE`, and `GOFLAGS`. If you configure a module proxy with inline credentials (for example `GOPROXY=https://user:token@proxy.example.com`), those credentials are part of the output. Don't forward `go-env` out of the job as a reusable or composite workflow output unless you have verified its contents.
+
+> [!NOTE]
+> `go env -json` requires Go 1.9 or newer. On older releases the action logs a warning and leaves these outputs unset; it does not fail.
 
 ## Custom download URL
 

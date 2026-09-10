@@ -10,6 +10,7 @@ import cp from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import {Architecture} from './types.js';
+import {Outputs} from './constants.js';
 
 export async function run() {
   try {
@@ -71,11 +72,12 @@ export async function run() {
       );
     }
 
-    const added = await addBinToPath();
-    core.debug(`add bin ${added}`);
-
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
+    const goEnv = readGoEnv(goPath);
+
+    const added = await addBinToPath(goEnv?.['GOPATH']);
+    core.debug(`add bin ${added}`);
 
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
@@ -102,18 +104,75 @@ export async function run() {
     // output the version actually being used
     core.info(goVersion);
 
-    core.setOutput('go-version', parseGoVersion(goVersion));
+    core.setOutput(Outputs.GoVersion, parseGoVersion(goVersion));
 
-    core.startGroup('go env');
-    const goEnv = (cp.execSync(`${goPath} env`) || '').toString();
-    core.info(goEnv);
-    core.endGroup();
+    if (goEnv) {
+      setGoEnvOutputs(goEnv);
+    }
   } catch (error) {
     core.setFailed((error as Error).message);
   }
 }
 
-export async function addBinToPath(): Promise<boolean> {
+/**
+ * Reads the Go environment as a single `go env -json` invocation and logs it.
+ *
+ * `go env -json` is only available since Go 1.9, and the action still supports
+ * older releases, so any failure is reported as a warning and leaves the Go
+ * environment outputs unset instead of failing the whole action.
+ */
+export function readGoEnv(goPath: string): Record<string, string> | undefined {
+  let goEnv: Record<string, string>;
+
+  try {
+    const rawGoEnv = (cp.execSync(`${goPath} env -json`) || '').toString();
+    const parsed: unknown = JSON.parse(rawGoEnv);
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error("'go env -json' did not return a JSON object");
+    }
+
+    goEnv = parsed as Record<string, string>;
+  } catch (error) {
+    core.warning(
+      `Unable to read 'go env -json', the Go environment outputs will not be set: ${
+        (error as Error).message
+      }`
+    );
+    return undefined;
+  }
+
+  core.startGroup('go env');
+  core.info(JSON.stringify(goEnv, null, 2));
+  core.endGroup();
+
+  return goEnv;
+}
+
+export function setGoEnvOutputs(goEnv: Record<string, string>): void {
+  core.setOutput(Outputs.GoEnv, JSON.stringify(goEnv));
+  core.setOutput(Outputs.GoPath, goEnv['GOPATH'] ?? '');
+  core.setOutput(Outputs.GoBin, goEnv['GOBIN'] ?? '');
+  core.setOutput(Outputs.GoRoot, goEnv['GOROOT'] ?? '');
+  core.setOutput(Outputs.GoCache, goEnv['GOCACHE'] ?? '');
+  core.setOutput(Outputs.GoModCache, goEnv['GOMODCACHE'] ?? '');
+  core.setOutput(Outputs.GoOs, goEnv['GOOS'] ?? '');
+  core.setOutput(Outputs.GoArch, goEnv['GOARCH'] ?? '');
+  core.setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
+
+  // `go env GOBIN` is empty unless it was explicitly configured. In that case
+  // `go install` falls back to `$GOPATH/bin`, which is the directory this
+  // action creates and adds to the PATH.
+  const goPath = goEnv['GOPATH'];
+  const goBinPath = goEnv['GOBIN'] || (goPath ? path.join(goPath, 'bin') : '');
+  core.setOutput(Outputs.GoBinPath, goBinPath);
+}
+
+export async function addBinToPath(goPath?: string): Promise<boolean> {
   let added = false;
   const g = await io.which('go');
   core.debug(`which go :${g}:`);
@@ -122,9 +181,8 @@ export async function addBinToPath(): Promise<boolean> {
     return added;
   }
 
-  const buf = cp.execSync('go env GOPATH');
-  if (buf.length > 1) {
-    const gp = buf.toString().trim();
+  const gp = goPath ?? cp.execSync('go env GOPATH').toString().trim();
+  if (gp) {
     core.debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {
       // some of the hosted images have go install but not profile dir
