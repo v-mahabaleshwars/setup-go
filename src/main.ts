@@ -160,6 +160,9 @@ export function setGoEnvOutputs(goEnv: Record<string, string>): void {
   core.setOutput(Outputs.GoRoot, goEnv['GOROOT'] ?? '');
   core.setOutput(Outputs.GoCache, goEnv['GOCACHE'] ?? '');
   core.setOutput(Outputs.GoModCache, goEnv['GOMODCACHE'] ?? '');
+  core.setOutput(Outputs.GoOs, goEnv['GOOS'] ?? '');
+  core.setOutput(Outputs.GoArch, goEnv['GOARCH'] ?? '');
+  core.setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
 
   // `go env GOBIN` is empty unless it was explicitly configured. In that case
   // `go install` falls back to `$GOPATH/bin`, which is the directory this

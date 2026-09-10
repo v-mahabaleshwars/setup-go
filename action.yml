@@ -27,7 +27,7 @@ outputs:
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
   go-env:
-    description: 'The full output of `go env -json` as a JSON string. Use `fromJSON()` to read individual variables, e.g. `fromJSON(steps.setup-go.outputs.go-env).GOOS`.'
+    description: 'The full output of `go env -json` as a JSON string. Use `fromJSON()` to read variables that have no dedicated output, e.g. `fromJSON(steps.setup-go.outputs.go-env).CGO_ENABLED`.'
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
@@ -40,6 +40,12 @@ outputs:
     description: 'The value of `go env GOCACHE`, the build cache directory.'
   go-mod-cache:
     description: 'The value of `go env GOMODCACHE`, the module cache directory.'
+  go-os:
+    description: 'The value of `go env GOOS`, the target operating system in Go notation (e.g. linux, darwin, windows).'
+  go-arch:
+    description: 'The value of `go env GOARCH`, the target architecture in Go notation (e.g. amd64, arm64).'
+  go-tool-dir:
+    description: 'The value of `go env GOTOOLDIR`, the directory holding the Go toolchain binaries such as compile, link and vet.'
 runs:
   using: 'node24'
   main: 'dist/setup/index.js'

@@ -673,7 +673,8 @@ describe('setup-go', () => {
       GOCACHE: '/Users/testuser/Library/Caches/go-build',
       GOMODCACHE: '/Users/testuser/go/pkg/mod',
       GOOS: 'darwin',
-      GOARCH: 'arm64'
+      GOARCH: 'arm64',
+      GOTOOLDIR: '/usr/local/go/pkg/tool/darwin_arm64'
     };
 
     it('parses and returns the output of go env -json', () => {
@@ -725,6 +726,9 @@ describe('setup-go', () => {
         'go-mod-cache',
         goEnv.GOMODCACHE
       );
+      expect(setOutputSpy).toHaveBeenCalledWith('go-os', goEnv.GOOS);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-arch', goEnv.GOARCH);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-tool-dir', goEnv.GOTOOLDIR);
     });
 
     it('falls back to $GOPATH/bin when GOBIN is empty', () => {

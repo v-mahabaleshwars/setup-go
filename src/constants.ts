@@ -12,5 +12,8 @@ export enum Outputs {
   GoBinPath = 'go-bin-path',
   GoRoot = 'go-root',
   GoCache = 'go-cache',
-  GoModCache = 'go-mod-cache'
+  GoModCache = 'go-mod-cache',
+  GoOs = 'go-os',
+  GoArch = 'go-arch',
+  GoToolDir = 'go-tool-dir'
 }

@@ -338,17 +338,6 @@ jobs:
         with:
           go-version: '1.25.5'
           cache: false
-      # Normalize runner.arch to lowercase to ensure consistent cache keys
-      - name: Normalize runner architecture (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-      - name: Normalize runner architecture (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $arch = "${{ runner.arch }}".ToLower()
-          echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
       - name: Set cache OS suffix for Linux
         if: runner.os == 'Linux'
         shell: bash
@@ -360,7 +349,7 @@ jobs:
           path: |
             ${{ steps.setup-go.outputs.go-mod-cache }}
             ${{ steps.setup-go.outputs.go-cache }}
-          key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
+          key: setup-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-arch }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
       - name: Download modules
         run: go mod download
       - name: Build
@@ -425,6 +414,9 @@ The most commonly needed variables are available as individual outputs:
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
+| `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
+| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` |
+| `go-tool-dir` | `GOTOOLDIR` | Directory holding `compile`, `link`, `vet` and the other toolchain binaries |
 
 ```yaml
 jobs:
@@ -457,11 +449,11 @@ jobs:
         id: setup-go
         with:
           go-version: '1.25.5'
-      - name: Package the release asset
+      - name: Report the toolchain configuration
         run: |
-          tar -czf tool-${{ fromJSON(steps.setup-go.outputs.go-env).GOOS }}-${{ fromJSON(steps.setup-go.outputs.go-env).GOARCH }}.tar.gz tool
-      - name: Copy the WebAssembly support file
-        run: cp "${{ fromJSON(steps.setup-go.outputs.go-env).GOROOT }}/lib/wasm/wasm_exec.js" ./web/
+          echo "cgo:      ${{ fromJSON(steps.setup-go.outputs.go-env).CGO_ENABLED }}"
+          echo "proxy:    ${{ fromJSON(steps.setup-go.outputs.go-env).GOPROXY }}"
+          echo "toolchain: ${{ fromJSON(steps.setup-go.outputs.go-env).GOVERSION }}"
 ```
 
 Because `go env` reports whatever the toolchain is configured with, the exact set of keys depends on the Go version and the platform. Read keys defensively rather than assuming a fixed schema.
