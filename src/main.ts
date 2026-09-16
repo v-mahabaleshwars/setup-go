@@ -154,7 +154,6 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
 }
 
 export function setGoEnvOutputs(goEnv: Record<string, string>): void {
-  core.setOutput(Outputs.GoEnv, JSON.stringify(goEnv));
   core.setOutput(Outputs.GoPath, goEnv['GOPATH'] ?? '');
   core.setOutput(Outputs.GoBin, goEnv['GOBIN'] ?? '');
   core.setOutput(Outputs.GoRoot, goEnv['GOROOT'] ?? '');

@@ -402,9 +402,7 @@ jobs:
 
 ### Go environment outputs
 
-The action runs `go env -json` once after Go is installed and exposes the result, so workflows don't have to shell out to `go env` themselves. This keeps workflows platform agnostic: the same expression works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
-
-The most commonly needed variables are available as individual outputs:
+The action reads the Go environment once after Go is installed and exposes the most commonly needed variables as outputs, so workflows don't have to shell out to `go env` themselves. This keeps workflows platform agnostic: the same expression works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
 
 | Output | `go env` variable | Notes |
 | --- | --- | --- |
@@ -435,31 +433,7 @@ jobs:
       - run: ${{ steps.setup-go.outputs.go-bin-path }}/tool --version
 ```
 
-### `go-env`
-
-Every other variable is available through the **go-env** output, which contains the full `go env -json` document as a JSON string. Read individual values with the [`fromJSON()`](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#fromjson) expression function:
-
-```yaml
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        id: setup-go
-        with:
-          go-version: '1.25.5'
-      - name: Report the toolchain configuration
-        run: |
-          echo "cgo:      ${{ fromJSON(steps.setup-go.outputs.go-env).CGO_ENABLED }}"
-          echo "proxy:    ${{ fromJSON(steps.setup-go.outputs.go-env).GOPROXY }}"
-          echo "toolchain: ${{ fromJSON(steps.setup-go.outputs.go-env).GOVERSION }}"
-```
-
-Because `go env` reports whatever the toolchain is configured with, the exact set of keys depends on the Go version and the platform. Read keys defensively rather than assuming a fixed schema.
-
-> [!WARNING]
-> `go-env` contains the value of `GOPROXY`, `GOPRIVATE`, and `GOFLAGS`. If you configure a module proxy with inline credentials (for example `GOPROXY=https://user:token@proxy.example.com`), those credentials are part of the output. Don't forward `go-env` out of the job as a reusable or composite workflow output unless you have verified its contents.
+Variables that have no dedicated output are not exposed by the action; run `go env <NAME>` in a step when you need one of them.
 
 > [!NOTE]
 > `go env -json` requires Go 1.9 or newer. On older releases the action logs a warning and leaves these outputs unset; it does not fail.

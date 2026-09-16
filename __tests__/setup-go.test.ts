@@ -714,10 +714,6 @@ describe('setup-go', () => {
     it('sets an output for each exposed Go environment variable', () => {
       main.setGoEnvOutputs(goEnv);
 
-      expect(setOutputSpy).toHaveBeenCalledWith(
-        'go-env',
-        JSON.stringify(goEnv)
-      );
       expect(setOutputSpy).toHaveBeenCalledWith('go-path', goEnv.GOPATH);
       expect(setOutputSpy).toHaveBeenCalledWith('go-bin', '');
       expect(setOutputSpy).toHaveBeenCalledWith('go-root', goEnv.GOROOT);

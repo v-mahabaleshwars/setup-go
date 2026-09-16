@@ -26,8 +26,6 @@ outputs:
     description: 'The installed Go version. Useful when given a version range as input.'
   cache-hit:
     description: 'A boolean value to indicate if a cache was hit'
-  go-env:
-    description: 'The full output of `go env -json` as a JSON string. Use `fromJSON()` to read variables that have no dedicated output, e.g. `fromJSON(steps.setup-go.outputs.go-env).CGO_ENABLED`.'
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
