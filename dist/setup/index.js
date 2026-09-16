@@ -100368,9 +100368,9 @@ function setGoEnvOutputs(goEnv) {
  * several directories but only the first one is installed into.
  */
 function resolveGoBinPath(goEnv) {
-    if (goEnv['GOBIN']) {
-        return goEnv['GOBIN'];
-    }
+    return goEnv['GOBIN'] || goPathBin(goEnv);
+}
+function goPathBin(goEnv) {
     const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0].trim();
     return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
@@ -100382,8 +100382,11 @@ async function addBinToPath(goEnv) {
         core_debug('go not in the path');
         return added;
     }
-    const bp = resolveGoBinPath(goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() });
-    if (bp) {
+    const env = goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() };
+    // `$GOPATH/bin` stays on the PATH even when GOBIN is set, so workflows that
+    // relied on it keep working; GOBIN is added last so it takes precedence.
+    const binPaths = new Set([goPathBin(env), env['GOBIN'] ?? ''].filter(Boolean));
+    for (const bp of binPaths) {
         core_debug(`go bin path :${bp}:`);
         if (!external_fs_default().existsSync(bp)) {
             // some of the hosted images have go install but not profile dir
