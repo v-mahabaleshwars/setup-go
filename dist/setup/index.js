@@ -100117,7 +100117,6 @@ var State;
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
-    Outputs["GoVersion"] = "go-version";
     Outputs["CacheHit"] = "cache-hit";
     Outputs["GoPath"] = "go-path";
     Outputs["GoBin"] = "go-bin";
@@ -100296,8 +100295,8 @@ async function run() {
         }
         const goPath = await which('go');
         const goVersion = (external_child_process_default().execSync(`${goPath} version`) || '').toString();
-        const goEnv = readGoEnv(goPath);
-        const added = await addBinToPath(goEnv);
+        const goEnvJson = readGoEnv(goPath);
+        const added = await addBinToPath(goEnvJson);
         core_debug(`add bin ${added}`);
         if (cache && isCacheFeatureAvailable()) {
             const packageManager = 'default';
@@ -100314,9 +100313,13 @@ async function run() {
         core_info(`##[add-matcher]${matchersPath}`);
         // output the version actually being used
         core_info(goVersion);
-        setOutput(Outputs.GoVersion, parseGoVersion(goVersion));
-        if (goEnv) {
-            setGoEnvOutputs(goEnv);
+        setOutput('go-version', parseGoVersion(goVersion));
+        startGroup('go env');
+        const goEnv = (external_child_process_default().execSync(`${goPath} env`) || '').toString();
+        core_info(goEnv);
+        endGroup();
+        if (goEnvJson) {
+            setGoEnvOutputs(goEnvJson);
         }
     }
     catch (error) {
@@ -100339,9 +100342,6 @@ function readGoEnv(goPath) {
         core_info(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
         return undefined;
     }
-    startGroup('go env');
-    core_info(JSON.stringify(goEnv, null, 2));
-    endGroup();
     return goEnv;
 }
 function setGoEnvOutputs(goEnv) {

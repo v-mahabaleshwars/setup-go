@@ -95343,7 +95343,6 @@ var State;
 })(State || (State = {}));
 var Outputs;
 (function (Outputs) {
-    Outputs["GoVersion"] = "go-version";
     Outputs["CacheHit"] = "cache-hit";
     Outputs["GoPath"] = "go-path";
     Outputs["GoBin"] = "go-bin";

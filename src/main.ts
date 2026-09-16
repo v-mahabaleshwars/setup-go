@@ -74,9 +74,9 @@ export async function run() {
 
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
-    const goEnv = readGoEnv(goPath);
+    const goEnvJson = readGoEnv(goPath);
 
-    const added = await addBinToPath(goEnv);
+    const added = await addBinToPath(goEnvJson);
     core.debug(`add bin ${added}`);
 
     if (cache && isCacheFeatureAvailable()) {
@@ -104,10 +104,15 @@ export async function run() {
     // output the version actually being used
     core.info(goVersion);
 
-    core.setOutput(Outputs.GoVersion, parseGoVersion(goVersion));
+    core.setOutput('go-version', parseGoVersion(goVersion));
 
-    if (goEnv) {
-      setGoEnvOutputs(goEnv);
+    core.startGroup('go env');
+    const goEnv = (cp.execSync(`${goPath} env`) || '').toString();
+    core.info(goEnv);
+    core.endGroup();
+
+    if (goEnvJson) {
+      setGoEnvOutputs(goEnvJson);
     }
   } catch (error) {
     core.setFailed((error as Error).message);
@@ -138,10 +143,6 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
     );
     return undefined;
   }
-
-  core.startGroup('go env');
-  core.info(JSON.stringify(goEnv, null, 2));
-  core.endGroup();
 
   return goEnv;
 }

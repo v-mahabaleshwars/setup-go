@@ -4,7 +4,6 @@ export enum State {
 }
 
 export enum Outputs {
-  GoVersion = 'go-version',
   CacheHit = 'cache-hit',
   GoPath = 'go-path',
   GoBin = 'go-bin',
