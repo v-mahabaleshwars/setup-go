@@ -367,8 +367,6 @@ jobs:
         run: go build ./...
 ```
 
-This key deliberately mirrors the one the action itself writes, so it matches an entry saved by a `cache: true` run. Note that the architecture segment comes from a lowercased `runner.arch` (`x64`), **not** from the `go-arch` output (`amd64`), because the action builds its key from Node's `process.arch`.
-
 > If there are several builds on the same repo, it may make sense to create a cache in one build and use it in others. The action [actions/cache/restore](https://github.com/actions/cache/tree/main/restore#only-restore-cache)
 should be used in this case.
 
