@@ -166,9 +166,17 @@ export function setGoEnvOutputs(goEnv: Record<string, string>): void {
   // `go env GOBIN` is empty unless it was explicitly configured. In that case
   // `go install` falls back to `$GOPATH/bin`, which is the directory this
   // action creates and adds to the PATH.
-  const goPath = goEnv['GOPATH'];
+  const goPath = firstGoPathEntry(goEnv['GOPATH']);
   const goBinPath = goEnv['GOBIN'] || (goPath ? path.join(goPath, 'bin') : '');
   core.setOutput(Outputs.GoBinPath, goBinPath);
+}
+
+/**
+ * `GOPATH` may list several directories, but `go install` only ever writes to
+ * the first one, so that is the entry the action exposes and adds to the PATH.
+ */
+export function firstGoPathEntry(goPath: string | undefined): string {
+  return (goPath ?? '').split(path.delimiter)[0].trim();
 }
 
 export async function addBinToPath(goPath?: string): Promise<boolean> {
@@ -180,7 +188,9 @@ export async function addBinToPath(goPath?: string): Promise<boolean> {
     return added;
   }
 
-  const gp = goPath ?? cp.execSync('go env GOPATH').toString().trim();
+  const gp = firstGoPathEntry(
+    goPath ?? cp.execSync('go env GOPATH').toString()
+  );
   if (gp) {
     core.debug(`go env GOPATH :${gp}:`);
     if (!fs.existsSync(gp)) {

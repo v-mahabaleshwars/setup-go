@@ -408,7 +408,7 @@ The action reads the Go environment once after Go is installed and exposes the m
 | --- | --- | --- |
 | `go-path` | `GOPATH` | |
 | `go-bin` | `GOBIN` | Empty unless `GOBIN` was explicitly configured |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The directory `go install` writes to, and the one this action adds to the `PATH` |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The directory `go install` writes to, and the one this action adds to the `PATH`. When `GOPATH` lists several directories, the first one is used |
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |

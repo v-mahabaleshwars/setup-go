@@ -45,9 +45,13 @@ jest.unstable_mockModule('os', () => ({...osExports, default: osExports}));
 
 const realPath = (await import('path')).default;
 const pathJoinMock = jest.fn();
+const pathDelimiterMock = jest.fn<() => string>();
 const pathExports = {
   ...realPath,
-  join: pathJoinMock
+  join: pathJoinMock,
+  get delimiter() {
+    return pathDelimiterMock();
+  }
 };
 jest.unstable_mockModule('path', () => ({
   ...pathExports,
@@ -174,6 +178,11 @@ describe('setup-go', () => {
 
       return posixJoin(...paths);
     });
+    pathDelimiterMock.mockImplementation(() =>
+      os['platform'] == 'win32'
+        ? realPath.win32.delimiter
+        : realPath.posix.delimiter
+    );
 
     // @actions/tool-cache
     findSpy = tc.find as jest.Mock;
@@ -665,6 +674,23 @@ describe('setup-go', () => {
     expect(execSpy).not.toHaveBeenCalled();
   });
 
+  it('adds bin of the first GOPATH entry only', async () => {
+    os.platform = 'linux';
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    const added = await main.addBinToPath(
+      '/Users/testuser/go:/Users/testuser/other'
+    );
+    expect(added).toBeTruthy();
+    expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/go/bin');
+    expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/other/bin');
+  });
+
   describe('go env outputs', () => {
     const goEnv = {
       GOPATH: '/Users/testuser/go',
@@ -742,6 +768,32 @@ describe('setup-go', () => {
       expect(setOutputSpy).toHaveBeenCalledWith(
         'go-bin-path',
         '/Users/testuser/bin'
+      );
+    });
+
+    it('uses the first entry of a GOPATH list on POSIX', () => {
+      os.platform = 'linux';
+      const GOPATH = '/Users/testuser/go:/Users/testuser/other';
+
+      main.setGoEnvOutputs({...goEnv, GOPATH});
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/Users/testuser/go/bin'
+      );
+    });
+
+    it('uses the first entry of a GOPATH list on Windows', () => {
+      os.platform = 'win32';
+      const GOPATH = 'C:\\Users\\runneradmin\\go;D:\\other';
+
+      main.setGoEnvOutputs({...goEnv, GOPATH});
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        'C:\\Users\\runneradmin\\go\\bin'
       );
     });
 
