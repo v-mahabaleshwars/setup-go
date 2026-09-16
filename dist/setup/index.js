@@ -100297,7 +100297,7 @@ async function run() {
         const goPath = await which('go');
         const goVersion = (external_child_process_default().execSync(`${goPath} version`) || '').toString();
         const goEnv = readGoEnv(goPath);
-        const added = await addBinToPath(goEnv?.['GOPATH']);
+        const added = await addBinToPath(goEnv);
         core_debug(`add bin ${added}`);
         if (cache && isCacheFeatureAvailable()) {
             const packageManager = 'default';
@@ -100360,21 +100360,21 @@ function setGoEnvOutputs(goEnv) {
     setOutput(Outputs.GoOs, goEnv['GOOS'] ?? '');
     setOutput(Outputs.GoArch, goEnv['GOARCH'] ?? '');
     setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
-    // `go env GOBIN` is empty unless it was explicitly configured. In that case
-    // `go install` falls back to `$GOPATH/bin`, which is the directory this
-    // action creates and adds to the PATH.
-    const goPath = firstGoPathEntry(goEnv['GOPATH']);
-    const goBinPath = goEnv['GOBIN'] || (goPath ? external_path_default().join(goPath, 'bin') : '');
-    setOutput(Outputs.GoBinPath, goBinPath);
+    setOutput(Outputs.GoBinPath, resolveGoBinPath(goEnv));
 }
 /**
- * `GOPATH` may list several directories, but `go install` only ever writes to
- * the first one, so that is the entry the action exposes and adds to the PATH.
+ * The directory `go install` writes to: `GOBIN` when it is configured,
+ * otherwise `bin` under the first `GOPATH` entry, since `GOPATH` may list
+ * several directories but only the first one is installed into.
  */
-function firstGoPathEntry(goPath) {
-    return (goPath ?? '').split((external_path_default()).delimiter)[0].trim();
+function resolveGoBinPath(goEnv) {
+    if (goEnv['GOBIN']) {
+        return goEnv['GOBIN'];
+    }
+    const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0].trim();
+    return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
-async function addBinToPath(goPath) {
+async function addBinToPath(goEnv) {
     let added = false;
     const g = await which('go');
     core_debug(`which go :${g}:`);
@@ -100382,16 +100382,11 @@ async function addBinToPath(goPath) {
         core_debug('go not in the path');
         return added;
     }
-    const gp = firstGoPathEntry(goPath ?? external_child_process_default().execSync('go env GOPATH').toString());
-    if (gp) {
-        core_debug(`go env GOPATH :${gp}:`);
-        if (!external_fs_default().existsSync(gp)) {
-            // some of the hosted images have go install but not profile dir
-            core_debug(`creating ${gp}`);
-            await mkdirP(gp);
-        }
-        const bp = external_path_default().join(gp, 'bin');
+    const bp = resolveGoBinPath(goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() });
+    if (bp) {
+        core_debug(`go bin path :${bp}:`);
         if (!external_fs_default().existsSync(bp)) {
+            // some of the hosted images have go install but not profile dir
             core_debug(`creating ${bp}`);
             await mkdirP(bp);
         }

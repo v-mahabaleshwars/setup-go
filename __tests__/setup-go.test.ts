@@ -669,7 +669,7 @@ describe('setup-go', () => {
     mkdirpSpy.mockImplementation(async () => {});
     existsSpy.mockImplementation(() => true);
 
-    const added = await main.addBinToPath('/Users/testuser/go');
+    const added = await main.addBinToPath({GOPATH: '/Users/testuser/go'});
     expect(added).toBeTruthy();
     expect(execSpy).not.toHaveBeenCalled();
   });
@@ -683,12 +683,33 @@ describe('setup-go', () => {
     mkdirpSpy.mockImplementation(async () => {});
     existsSpy.mockImplementation(() => false);
 
-    const added = await main.addBinToPath(
-      '/Users/testuser/go:/Users/testuser/other'
-    );
+    const added = await main.addBinToPath({
+      GOPATH: '/Users/testuser/go:/Users/testuser/other'
+    });
     expect(added).toBeTruthy();
     expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/go/bin');
     expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/other/bin');
+  });
+
+  it('adds GOBIN to the path when it is configured', async () => {
+    os.platform = 'linux';
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    const added = await main.addBinToPath({
+      GOPATH: '/Users/testuser/go',
+      GOBIN: '/Users/testuser/bin'
+    });
+    expect(added).toBeTruthy();
+    expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/bin');
+    expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/go/bin');
+    expect(cnSpy).toHaveBeenCalledWith(
+      `::add-path::/Users/testuser/bin${osm.EOL}`
+    );
   });
 
   describe('go env outputs', () => {
