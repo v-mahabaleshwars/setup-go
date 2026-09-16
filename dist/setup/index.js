@@ -100327,8 +100327,8 @@ async function run() {
  * Reads the Go environment as a single `go env -json` invocation and logs it.
  *
  * `go env -json` is only available since Go 1.9, and the action still supports
- * older releases, so any failure is reported as a warning and leaves the Go
- * environment outputs unset instead of failing the whole action.
+ * older releases, so any failure is logged and leaves the Go environment
+ * outputs unset instead of failing the whole action.
  */
 function readGoEnv(goPath) {
     let goEnv;
@@ -100343,7 +100343,9 @@ function readGoEnv(goPath) {
         goEnv = parsed;
     }
     catch (error) {
-        warning(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
+        // Logged rather than warned: older toolchains would otherwise get an
+        // annotation on every run for an optional feature.
+        core_info(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
         return undefined;
     }
     startGroup('go env');
@@ -100382,18 +100384,25 @@ async function addBinToPath(goEnv) {
         core_debug('go not in the path');
         return added;
     }
+    // The legacy fallback carries no GOBIN, matching the behaviour from before
+    // the Go environment outputs existed.
     const env = goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() };
-    // `$GOPATH/bin` stays on the PATH even when GOBIN is set, so workflows that
-    // relied on it keep working; GOBIN is added last so it takes precedence.
-    const binPaths = new Set([goPathBin(env), env['GOBIN'] ?? ''].filter(Boolean));
-    for (const bp of binPaths) {
-        core_debug(`go bin path :${bp}:`);
-        if (!external_fs_default().existsSync(bp)) {
+    const gpBin = goPathBin(env);
+    if (gpBin) {
+        core_debug(`go bin path :${gpBin}:`);
+        if (!external_fs_default().existsSync(gpBin)) {
             // some of the hosted images have go install but not profile dir
-            core_debug(`creating ${bp}`);
-            await mkdirP(bp);
+            core_debug(`creating ${gpBin}`);
+            await mkdirP(gpBin);
         }
-        addPath(bp);
+        addPath(gpBin);
+        added = true;
+    }
+    // Added last so it takes precedence on the PATH. `go install` creates it when
+    // it writes, so the action must not create it itself.
+    const goBin = env['GOBIN'];
+    if (goBin && goBin !== gpBin) {
+        addPath(goBin);
         added = true;
     }
     return added;

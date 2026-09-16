@@ -118,8 +118,8 @@ export async function run() {
  * Reads the Go environment as a single `go env -json` invocation and logs it.
  *
  * `go env -json` is only available since Go 1.9, and the action still supports
- * older releases, so any failure is reported as a warning and leaves the Go
- * environment outputs unset instead of failing the whole action.
+ * older releases, so any failure is logged and leaves the Go environment
+ * outputs unset instead of failing the whole action.
  */
 export function readGoEnv(goPath: string): Record<string, string> | undefined {
   let goEnv: Record<string, string>;
@@ -138,7 +138,9 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
 
     goEnv = parsed as Record<string, string>;
   } catch (error) {
-    core.warning(
+    // Logged rather than warned: older toolchains would otherwise get an
+    // annotation on every run for an optional feature.
+    core.info(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
         (error as Error).message
       }`
@@ -170,7 +172,7 @@ export function setGoEnvOutputs(goEnv: Record<string, string>): void {
  * otherwise `bin` under the first `GOPATH` entry, since `GOPATH` may list
  * several directories but only the first one is installed into.
  */
-export function resolveGoBinPath(goEnv: Record<string, string>): string {
+function resolveGoBinPath(goEnv: Record<string, string>): string {
   return goEnv['GOBIN'] || goPathBin(goEnv);
 }
 
@@ -190,25 +192,31 @@ export async function addBinToPath(
     return added;
   }
 
+  // The legacy fallback carries no GOBIN, matching the behaviour from before
+  // the Go environment outputs existed.
   const env = goEnv ?? {GOPATH: cp.execSync('go env GOPATH').toString()};
+  const gpBin = goPathBin(env);
 
-  // `$GOPATH/bin` stays on the PATH even when GOBIN is set, so workflows that
-  // relied on it keep working; GOBIN is added last so it takes precedence.
-  const binPaths = new Set(
-    [goPathBin(env), env['GOBIN'] ?? ''].filter(Boolean)
-  );
-
-  for (const bp of binPaths) {
-    core.debug(`go bin path :${bp}:`);
-    if (!fs.existsSync(bp)) {
+  if (gpBin) {
+    core.debug(`go bin path :${gpBin}:`);
+    if (!fs.existsSync(gpBin)) {
       // some of the hosted images have go install but not profile dir
-      core.debug(`creating ${bp}`);
-      await io.mkdirP(bp);
+      core.debug(`creating ${gpBin}`);
+      await io.mkdirP(gpBin);
     }
 
-    core.addPath(bp);
+    core.addPath(gpBin);
     added = true;
   }
+
+  // Added last so it takes precedence on the PATH. `go install` creates it when
+  // it writes, so the action must not create it itself.
+  const goBin = env['GOBIN'];
+  if (goBin && goBin !== gpBin) {
+    core.addPath(goBin);
+    added = true;
+  }
+
   return added;
 }
 

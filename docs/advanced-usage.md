@@ -338,6 +338,17 @@ jobs:
         with:
           go-version: '1.25.5'
           cache: false
+      # Normalize runner.arch to lowercase to ensure consistent cache keys
+      - name: Normalize runner architecture (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: echo "ARCH=$(echo '${{ runner.arch }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Normalize runner architecture (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $arch = "${{ runner.arch }}".ToLower()
+          echo "ARCH=$arch" | Out-File $env:GITHUB_ENV -Append
       - name: Set cache OS suffix for Linux
         if: runner.os == 'Linux'
         shell: bash
@@ -349,12 +360,14 @@ jobs:
           path: |
             ${{ steps.setup-go.outputs.go-mod-cache }}
             ${{ steps.setup-go.outputs.go-cache }}
-          key: setup-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-arch }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
+          key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
       - name: Download modules
         run: go mod download
       - name: Build
         run: go build ./...
 ```
+
+This key deliberately mirrors the one the action itself writes, so it matches an entry saved by a `cache: true` run. Note that the architecture segment comes from a lowercased `runner.arch` (`x64`), **not** from the `go-arch` output (`amd64`), because the action builds its key from Node's `process.arch`.
 
 > If there are several builds on the same repo, it may make sense to create a cache in one build and use it in others. The action [actions/cache/restore](https://github.com/actions/cache/tree/main/restore#only-restore-cache)
 should be used in this case.
@@ -413,7 +426,7 @@ The action reads the Go environment once after Go is installed and exposes the m
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
 | `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
-| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` |
+| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch`. Not interchangeable with the architecture segment of the action's own cache key, which uses `x64` |
 | `go-tool-dir` | `GOTOOLDIR` | Directory holding `compile`, `link`, `vet` and the other toolchain binaries |
 
 ```yaml
@@ -438,7 +451,7 @@ Reference `go-bin-path` only when another action needs the directory, and quote 
 Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
-> `go env -json` requires Go 1.9 or newer. On older releases the action logs a warning and leaves these outputs unset; it does not fail.
+> `go env -json` requires Go 1.9 or newer. On older releases the action logs a message and leaves these outputs unset; it does not fail.
 
 ## Custom download URL
 

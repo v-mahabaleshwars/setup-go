@@ -706,7 +706,7 @@ describe('setup-go', () => {
     });
     expect(added).toBeTruthy();
     expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/go/bin');
-    expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/bin');
+    expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/bin');
     expect(
       cnSpy.mock.calls
         .map(([line]) => String(line))
@@ -736,29 +736,30 @@ describe('setup-go', () => {
       expect(execSpy).toHaveBeenCalledWith('/usr/local/go/bin/go env -json');
     });
 
-    it('warns and returns undefined when go env -json is not supported', () => {
+    it('logs without annotating when go env -json is not supported', () => {
       execSpy.mockImplementation(() => {
         throw new Error('flag provided but not defined: -json');
       });
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
-      expect(warningSpy).toHaveBeenCalledWith(
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('flag provided but not defined: -json')
       );
+      expect(warningSpy).not.toHaveBeenCalled();
     });
 
-    it('warns and returns undefined when the output is not valid JSON', () => {
+    it('logs and returns undefined when the output is not valid JSON', () => {
       execSpy.mockImplementation(() => 'GOPATH="/Users/testuser/go"');
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
-      expect(warningSpy).toHaveBeenCalled();
+      expect(warningSpy).not.toHaveBeenCalled();
     });
 
-    it('warns and returns undefined when the output is not a JSON object', () => {
+    it('logs and returns undefined when the output is not a JSON object', () => {
       execSpy.mockImplementation(() => '[]');
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
-      expect(warningSpy).toHaveBeenCalledWith(
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('did not return a JSON object')
       );
     });
