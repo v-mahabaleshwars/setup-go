@@ -402,7 +402,7 @@ jobs:
 
 ### Go environment outputs
 
-The action reads the Go environment once after Go is installed and exposes the most commonly needed variables as outputs, so workflows don't have to shell out to `go env` themselves. This keeps workflows platform agnostic: the same expression works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
+The action reads the Go environment once after Go is installed and exposes the most commonly needed variables as outputs, so workflows don't have to shell out to `go env` themselves. The same expression then works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
 
 | Output | `go env` variable | Notes |
 | --- | --- | --- |
@@ -430,10 +430,12 @@ jobs:
         with:
           go-version: '1.25.5'
       - run: go install github.com/example/tool@latest
-      - run: ${{ steps.setup-go.outputs.go-bin-path }}/tool --version
+      - run: tool --version # go-bin-path is on the PATH, no separator or .exe handling needed
 ```
 
-Variables that have no dedicated output are not exposed by the action; run `go env <NAME>` in a step when you need one of them.
+Reference `go-bin-path` only when another action needs the directory, and quote it in shell commands since it may contain spaces.
+
+Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
 > `go env -json` requires Go 1.9 or newer. On older releases the action logs a warning and leaves these outputs unset; it does not fail.
