@@ -114,13 +114,6 @@ export async function run() {
   }
 }
 
-/**
- * Reads the Go environment as a single `go env -json` invocation and logs it.
- *
- * `go env -json` is only available since Go 1.9, and the action still supports
- * older releases, so any failure is logged and leaves the Go environment
- * outputs unset instead of failing the whole action.
- */
 export function readGoEnv(goPath: string): Record<string, string> | undefined {
   let goEnv: Record<string, string>;
 
@@ -138,8 +131,6 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
 
     goEnv = parsed as Record<string, string>;
   } catch (error) {
-    // Logged rather than warned: older toolchains would otherwise get an
-    // annotation on every run for an optional feature.
     core.info(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
         (error as Error).message
@@ -167,11 +158,6 @@ export function setGoEnvOutputs(goEnv: Record<string, string>): void {
   core.setOutput(Outputs.GoBinPath, resolveGoBinPath(goEnv));
 }
 
-/**
- * The directory `go install` writes to: `GOBIN` when it is configured,
- * otherwise `bin` under the first `GOPATH` entry, since `GOPATH` may list
- * several directories but only the first one is installed into.
- */
 function resolveGoBinPath(goEnv: Record<string, string>): string {
   return goEnv['GOBIN'] || goPathBin(goEnv);
 }
@@ -192,8 +178,6 @@ export async function addBinToPath(
     return added;
   }
 
-  // The legacy fallback carries no GOBIN, matching the behaviour from before
-  // the Go environment outputs existed.
   const env = goEnv ?? {GOPATH: cp.execSync('go env GOPATH').toString()};
   const gpBin = goPathBin(env);
 
@@ -209,8 +193,6 @@ export async function addBinToPath(
     added = true;
   }
 
-  // Added last so it takes precedence on the PATH. `go install` creates it when
-  // it writes, so the action must not create it itself.
   const goBin = env['GOBIN'];
   if (goBin && goBin !== gpBin) {
     core.addPath(goBin);

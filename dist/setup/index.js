@@ -100323,13 +100323,6 @@ async function run() {
         setFailed(error.message);
     }
 }
-/**
- * Reads the Go environment as a single `go env -json` invocation and logs it.
- *
- * `go env -json` is only available since Go 1.9, and the action still supports
- * older releases, so any failure is logged and leaves the Go environment
- * outputs unset instead of failing the whole action.
- */
 function readGoEnv(goPath) {
     let goEnv;
     try {
@@ -100343,8 +100336,6 @@ function readGoEnv(goPath) {
         goEnv = parsed;
     }
     catch (error) {
-        // Logged rather than warned: older toolchains would otherwise get an
-        // annotation on every run for an optional feature.
         core_info(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
         return undefined;
     }
@@ -100364,11 +100355,6 @@ function setGoEnvOutputs(goEnv) {
     setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
     setOutput(Outputs.GoBinPath, resolveGoBinPath(goEnv));
 }
-/**
- * The directory `go install` writes to: `GOBIN` when it is configured,
- * otherwise `bin` under the first `GOPATH` entry, since `GOPATH` may list
- * several directories but only the first one is installed into.
- */
 function resolveGoBinPath(goEnv) {
     return goEnv['GOBIN'] || goPathBin(goEnv);
 }
@@ -100384,8 +100370,6 @@ async function addBinToPath(goEnv) {
         core_debug('go not in the path');
         return added;
     }
-    // The legacy fallback carries no GOBIN, matching the behaviour from before
-    // the Go environment outputs existed.
     const env = goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() };
     const gpBin = goPathBin(env);
     if (gpBin) {
@@ -100398,8 +100382,6 @@ async function addBinToPath(goEnv) {
         addPath(gpBin);
         added = true;
     }
-    // Added last so it takes precedence on the PATH. `go install` creates it when
-    // it writes, so the action must not create it itself.
     const goBin = env['GOBIN'];
     if (goBin && goBin !== gpBin) {
         addPath(goBin);
