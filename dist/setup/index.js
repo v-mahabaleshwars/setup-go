@@ -100362,7 +100362,7 @@ function setGoEnvOutputs(goEnv) {
     setOutput(Outputs.GoBinPath, goEnv['GOBIN'] || goPathBin(goEnv));
 }
 function goPathBin(goEnv) {
-    const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0].trim();
+    const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0];
     return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
 async function addBinToPath() {

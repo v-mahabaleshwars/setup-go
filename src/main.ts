@@ -166,7 +166,7 @@ export function setGoEnvOutputs(goEnv: Record<string, string>): void {
 }
 
 function goPathBin(goEnv: Record<string, string>): string {
-  const goPath = (goEnv['GOPATH'] ?? '').split(path.delimiter)[0].trim();
+  const goPath = (goEnv['GOPATH'] ?? '').split(path.delimiter)[0];
   return goPath ? path.join(goPath, 'bin') : '';
 }
 

@@ -419,13 +419,13 @@ The action reads the Go environment after Go is installed and exposes the most c
 | --- | --- | --- |
 | `go-path` | `GOPATH` | |
 | `go-bin` | `GOBIN` | Go 1.27+ reports the effective install directory (see [go.dev/issue/23439](https://go.dev/issue/23439)); earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | Where `go install` writes in module mode: `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The default `go install` directory: `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry. Cross-compiled installs use a `$GOOS_$GOARCH` subdirectory |
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
 | `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
-| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` and unlike the `x64` segment of the action's own cache key |
-| `go-tool-dir` | `GOTOOLDIR` | Directory holding `compile`, `link`, `vet` and the other toolchain binaries |
+| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` or the `x64` in the action's cache key |
+| `go-tool-dir` | `GOTOOLDIR` | Holds `compile`, `link`, `vet` and the other toolchain binaries |
 
 ```yaml
 jobs:
