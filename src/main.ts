@@ -120,10 +120,11 @@ export async function run() {
 }
 
 export function readGoEnv(goPath: string): Record<string, string> | undefined {
-  let goEnv: Record<string, string>;
-
   try {
-    const rawGoEnv = (cp.execSync(`${goPath} env -json`) || '').toString();
+    const rawGoEnv = cp.execFileSync(goPath, ['env', '-json'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
     const parsed: unknown = JSON.parse(rawGoEnv);
 
     if (
@@ -134,7 +135,7 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
       throw new Error("'go env -json' did not return a JSON object");
     }
 
-    goEnv = parsed as Record<string, string>;
+    return parsed as Record<string, string>;
   } catch (error) {
     core.info(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
@@ -143,29 +144,35 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
     );
     return undefined;
   }
-
-  return goEnv;
 }
+
+const goEnvOutputs: ReadonlyArray<[Outputs, string]> = [
+  [Outputs.GoPath, 'GOPATH'],
+  [Outputs.GoBin, 'GOBIN'],
+  [Outputs.GoRoot, 'GOROOT'],
+  [Outputs.GoCache, 'GOCACHE'],
+  [Outputs.GoModCache, 'GOMODCACHE'],
+  [Outputs.GoOs, 'GOOS'],
+  [Outputs.GoArch, 'GOARCH'],
+  [Outputs.GoToolDir, 'GOTOOLDIR']
+];
 
 export function setGoEnvOutputs(goEnv: Record<string, string>): void {
-  core.setOutput(Outputs.GoPath, goEnv['GOPATH'] ?? '');
-  core.setOutput(Outputs.GoBin, goEnv['GOBIN'] ?? '');
-  core.setOutput(Outputs.GoRoot, goEnv['GOROOT'] ?? '');
-  core.setOutput(Outputs.GoCache, goEnv['GOCACHE'] ?? '');
-  core.setOutput(Outputs.GoModCache, goEnv['GOMODCACHE'] ?? '');
-  core.setOutput(Outputs.GoOs, goEnv['GOOS'] ?? '');
-  core.setOutput(Outputs.GoArch, goEnv['GOARCH'] ?? '');
-  core.setOutput(Outputs.GoToolDir, goEnv['GOTOOLDIR'] ?? '');
-  core.setOutput(Outputs.GoBinPath, resolveGoBinPath(goEnv));
-}
+  for (const [output, variable] of goEnvOutputs) {
+    core.setOutput(output, goEnv[variable] ?? '');
+  }
 
-function resolveGoBinPath(goEnv: Record<string, string>): string {
-  return goEnv['GOBIN'] || goPathBin(goEnv);
+  core.setOutput(Outputs.GoBinPath, goEnv['GOBIN'] || goPathBin(goEnv));
 }
 
 function goPathBin(goEnv: Record<string, string>): string {
   const goPath = (goEnv['GOPATH'] ?? '').split(path.delimiter)[0].trim();
   return goPath ? path.join(goPath, 'bin') : '';
+}
+
+function isSamePath(left: string, right: string): boolean {
+  // path.relative normalises separators, trailing slashes and drive letter case
+  return Boolean(left && right) && path.relative(left, right) === '';
 }
 
 export async function addBinToPath(
@@ -195,7 +202,9 @@ export async function addBinToPath(
   }
 
   const goBin = env['GOBIN'];
-  if (goBin && goBin !== gpBin) {
+  if (goBin && !isSamePath(goBin, gpBin)) {
+    // 'go install' creates GOBIN on demand, so it only needs to be on the PATH
+    core.debug(`GOBIN path :${goBin}:`);
     core.addPath(goBin);
     added = true;
   }

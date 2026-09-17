@@ -46,9 +46,11 @@ jest.unstable_mockModule('os', () => ({...osExports, default: osExports}));
 const realPath = (await import('path')).default;
 const pathJoinMock = jest.fn();
 const pathDelimiterMock = jest.fn<() => string>();
+const pathRelativeMock = jest.fn<typeof realPath.relative>();
 const pathExports = {
   ...realPath,
   join: pathJoinMock,
+  relative: pathRelativeMock,
   get delimiter() {
     return pathDelimiterMock();
   }
@@ -182,6 +184,11 @@ describe('setup-go', () => {
       os['platform'] == 'win32'
         ? realPath.win32.delimiter
         : realPath.posix.delimiter
+    );
+    pathRelativeMock.mockImplementation((from: string, to: string) =>
+      os['platform'] == 'win32'
+        ? realPath.win32.relative(from, to)
+        : realPath.posix.relative(from, to)
     );
 
     // @actions/tool-cache
@@ -717,6 +724,104 @@ describe('setup-go', () => {
     ]);
   });
 
+  it('fails when $GOPATH/bin cannot be created', async () => {
+    os.platform = 'linux';
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    existsSpy.mockImplementation(() => false);
+    mkdirpSpy.mockImplementation(async () => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    await expect(
+      main.addBinToPath({GOPATH: '/Users/testuser/go'})
+    ).rejects.toThrow('EACCES: permission denied');
+  });
+
+  it('adds $GOPATH/bin once when GOBIN reports the same directory', async () => {
+    // Go 1.27+ reports the effective install directory in GOBIN, see go.dev/issue/23439
+    os.platform = 'linux';
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    const added = await main.addBinToPath({
+      GOPATH: '/Users/testuser/go',
+      GOBIN: '/Users/testuser/go/bin'
+    });
+    expect(added).toBeTruthy();
+    expect(
+      cnSpy.mock.calls
+        .map(([line]) => String(line))
+        .filter(line => line.startsWith('::add-path::'))
+    ).toEqual([`::add-path::/Users/testuser/go/bin${osm.EOL}`]);
+  });
+
+  it('ignores a trailing separator when comparing GOBIN to $GOPATH/bin', async () => {
+    os.platform = 'linux';
+    whichSpy.mockImplementation(async () => {
+      return '/usr/local/go/bin/go';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    await main.addBinToPath({
+      GOPATH: '/Users/testuser/go',
+      GOBIN: '/Users/testuser/go/bin/'
+    });
+    expect(
+      cnSpy.mock.calls
+        .map(([line]) => String(line))
+        .filter(line => line.startsWith('::add-path::'))
+    ).toEqual([`::add-path::/Users/testuser/go/bin${osm.EOL}`]);
+  });
+
+  it('compares GOBIN to $GOPATH/bin case-insensitively on Windows', async () => {
+    os.platform = 'win32';
+    whichSpy.mockImplementation(async () => {
+      return 'C:\\hostedtoolcache\\go\\bin\\go.exe';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    await main.addBinToPath({
+      GOPATH: 'C:\\Users\\runneradmin\\go',
+      GOBIN: 'c:\\users\\runneradmin\\go\\bin'
+    });
+    expect(
+      cnSpy.mock.calls
+        .map(([line]) => String(line))
+        .filter(line => line.startsWith('::add-path::'))
+    ).toEqual([`::add-path::C:\\Users\\runneradmin\\go\\bin${osm.EOL}`]);
+  });
+
+  it('ignores mixed separators when comparing GOBIN on Windows', async () => {
+    os.platform = 'win32';
+    whichSpy.mockImplementation(async () => {
+      return 'C:\\hostedtoolcache\\go\\bin\\go.exe';
+    });
+
+    mkdirpSpy.mockImplementation(async () => {});
+    existsSpy.mockImplementation(() => false);
+
+    await main.addBinToPath({
+      GOPATH: 'C:\\Users\\runneradmin\\go',
+      GOBIN: 'C:/Users/runneradmin/go/bin'
+    });
+    expect(
+      cnSpy.mock.calls
+        .map(([line]) => String(line))
+        .filter(line => line.startsWith('::add-path::'))
+    ).toEqual([`::add-path::C:\\Users\\runneradmin\\go\\bin${osm.EOL}`]);
+  });
+
   describe('go env outputs', () => {
     const goEnv = {
       GOPATH: '/Users/testuser/go',
@@ -730,14 +835,18 @@ describe('setup-go', () => {
     };
 
     it('parses and returns the output of go env -json', () => {
-      execSpy.mockImplementation(() => JSON.stringify(goEnv));
+      execFileSpy.mockImplementation(() => JSON.stringify(goEnv));
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toEqual(goEnv);
-      expect(execSpy).toHaveBeenCalledWith('/usr/local/go/bin/go env -json');
+      expect(execFileSpy).toHaveBeenCalledWith(
+        '/usr/local/go/bin/go',
+        ['env', '-json'],
+        {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}
+      );
     });
 
     it('logs without annotating when go env -json is not supported', () => {
-      execSpy.mockImplementation(() => {
+      execFileSpy.mockImplementation(() => {
         throw new Error('flag provided but not defined: -json');
       });
 
@@ -749,14 +858,14 @@ describe('setup-go', () => {
     });
 
     it('logs and returns undefined when the output is not valid JSON', () => {
-      execSpy.mockImplementation(() => 'GOPATH="/Users/testuser/go"');
+      execFileSpy.mockImplementation(() => 'GOPATH="/Users/testuser/go"');
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
       expect(warningSpy).not.toHaveBeenCalled();
     });
 
     it('logs and returns undefined when the output is not a JSON object', () => {
-      execSpy.mockImplementation(() => '[]');
+      execFileSpy.mockImplementation(() => '[]');
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
       expect(logSpy).toHaveBeenCalledWith(
@@ -829,6 +938,196 @@ describe('setup-go', () => {
 
       expect(setOutputSpy).toHaveBeenCalledWith('go-path', '');
       expect(setOutputSpy).toHaveBeenCalledWith('go-bin-path', '');
+    });
+
+    it('leaves GOCACHE and GOMODCACHE empty when older Go omits them', () => {
+      main.setGoEnvOutputs({
+        GOPATH: '/home/runner/go',
+        GOBIN: '',
+        GOROOT: '/usr/local/go',
+        GOOS: 'linux',
+        GOARCH: 'amd64',
+        GOTOOLDIR: '/usr/local/go/pkg/tool/linux_amd64'
+      });
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-cache', '');
+      expect(setOutputSpy).toHaveBeenCalledWith('go-mod-cache', '');
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/home/runner/go/bin'
+      );
+    });
+
+    it('sets go-bin and go-bin-path to the same directory on Go 1.27+', () => {
+      main.setGoEnvOutputs({
+        ...goEnv,
+        GOBIN: '/Users/testuser/go/bin'
+      });
+
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin',
+        '/Users/testuser/go/bin'
+      );
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/Users/testuser/go/bin'
+      );
+    });
+  });
+
+  describe('run() go env outputs', () => {
+    const linuxGoEnv = {
+      GOPATH: '/home/runner/go',
+      GOBIN: '/home/runner/go/bin',
+      GOROOT: '/opt/hostedtoolcache/go/1.27.1/x64',
+      GOCACHE: '/home/runner/.cache/go-build',
+      GOMODCACHE: '/home/runner/go/pkg/mod',
+      GOOS: 'linux',
+      GOARCH: 'amd64',
+      GOTOOLDIR: '/opt/hostedtoolcache/go/1.27.1/x64/pkg/tool/linux_amd64'
+    };
+
+    function mockGoCommands(options: {
+      versionLine: string;
+      envJson?: Record<string, string> | Error;
+      envText?: string;
+      gopath?: string;
+    }) {
+      whichSpy.mockImplementation(async () => '/usr/local/go/bin/go');
+      existsSpy.mockImplementation(() => true);
+      execFileSpy.mockImplementation((file: string, args?: readonly any[]) => {
+        if (args?.includes('-json')) {
+          if (options.envJson instanceof Error) {
+            throw options.envJson;
+          }
+          return JSON.stringify(options.envJson ?? {});
+        }
+        return options.versionLine;
+      });
+      execSpy.mockImplementation((command: string | Buffer) => {
+        const cmd = String(command);
+        if (cmd.includes('version')) {
+          return options.versionLine;
+        }
+        if (cmd.includes('GOPATH')) {
+          return options.gopath ?? '/home/runner/go\n';
+        }
+        return options.envText ?? '';
+      });
+    }
+
+    it('exposes go env outputs from a Go 1.27 stable install', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+      inputs['go-version'] = '1.27.1';
+      findSpy.mockImplementation(() =>
+        path.normalize('/opt/hostedtoolcache/go/1.27.1/x64')
+      );
+      mockGoCommands({
+        versionLine: 'go version go1.27.1 linux/amd64',
+        envJson: linuxGoEnv,
+        envText: "GOPATH='/home/runner/go'\n"
+      });
+
+      await main.run();
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-version', '1.27.1');
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', linuxGoEnv.GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-bin', linuxGoEnv.GOBIN);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        linuxGoEnv.GOBIN
+      );
+      expect(setOutputSpy).toHaveBeenCalledWith('go-root', linuxGoEnv.GOROOT);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-cache', linuxGoEnv.GOCACHE);
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-mod-cache',
+        linuxGoEnv.GOMODCACHE
+      );
+      expect(setOutputSpy).toHaveBeenCalledWith('go-os', 'linux');
+      expect(setOutputSpy).toHaveBeenCalledWith('go-arch', 'amd64');
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-tool-dir',
+        linuxGoEnv.GOTOOLDIR
+      );
+    });
+
+    it('falls back to $GOPATH/bin on Go 1.26 when GOBIN is empty', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+      inputs['go-version'] = '1.26.8';
+      findSpy.mockImplementation(() =>
+        path.normalize('/opt/hostedtoolcache/go/1.26.8/x64')
+      );
+      mockGoCommands({
+        versionLine: 'go version go1.26.8 linux/amd64',
+        envJson: {...linuxGoEnv, GOBIN: ''}
+      });
+
+      await main.run();
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-bin', '');
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        '/home/runner/go/bin'
+      );
+    });
+
+    it('does not set go env outputs when go env -json is unavailable', async () => {
+      os.platform = 'linux';
+      os.arch = 'x64';
+      inputs['go-version'] = '1.8';
+      findSpy.mockImplementation(() => path.normalize('/cache/go/1.8.0/x64'));
+      mockGoCommands({
+        versionLine: 'go version go1.8.7 linux/amd64',
+        envJson: new Error('flag provided but not defined: -json'),
+        gopath: '/home/runner/go\n'
+      });
+
+      await main.run();
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-version', '1.8.7');
+      expect(setOutputSpy).not.toHaveBeenCalledWith(
+        'go-path',
+        expect.anything()
+      );
+      expect(setOutputSpy).not.toHaveBeenCalledWith(
+        'go-bin-path',
+        expect.anything()
+      );
+    });
+
+    it('exposes Windows paths and a semicolon-separated GOPATH', async () => {
+      os.platform = 'win32';
+      os.arch = 'x64';
+      inputs['go-version'] = '1.27.1';
+      findSpy.mockImplementation(() =>
+        path.normalize('/hostedtoolcache/windows/go/1.27.1/x64')
+      );
+      const windowsGoEnv = {
+        GOPATH: 'C:\\Users\\runneradmin\\go;D:\\other',
+        GOBIN: 'C:\\Users\\runneradmin\\go\\bin',
+        GOROOT: 'C:\\hostedtoolcache\\windows\\go\\1.27.1\\x64',
+        GOCACHE: 'C:\\Users\\runneradmin\\AppData\\Local\\go-build',
+        GOMODCACHE: 'C:\\Users\\runneradmin\\go\\pkg\\mod',
+        GOOS: 'windows',
+        GOARCH: 'amd64',
+        GOTOOLDIR:
+          'C:\\hostedtoolcache\\windows\\go\\1.27.1\\x64\\pkg\\tool\\windows_amd64'
+      };
+      mockGoCommands({
+        versionLine: 'go version go1.27.1 windows/amd64',
+        envJson: windowsGoEnv
+      });
+
+      await main.run();
+
+      expect(setOutputSpy).toHaveBeenCalledWith('go-path', windowsGoEnv.GOPATH);
+      expect(setOutputSpy).toHaveBeenCalledWith('go-os', 'windows');
+      expect(setOutputSpy).toHaveBeenCalledWith(
+        'go-bin-path',
+        'C:\\Users\\runneradmin\\go\\bin'
+      );
     });
   });
 

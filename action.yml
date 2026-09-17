@@ -29,9 +29,9 @@ outputs:
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
-    description: 'The value of `go env GOBIN`. This is empty unless GOBIN was explicitly configured; use `go-bin-path` for the effective install directory.'
+    description: 'The value of `go env GOBIN`. Go 1.27+ reports the effective install directory, earlier releases report an empty value unless GOBIN is set; prefer `go-bin-path`.'
   go-bin-path:
-    description: 'The effective directory that `go install` writes to: GOBIN when set, otherwise `$GOPATH/bin`. This directory is added to the PATH by the action.'
+    description: 'The directory `go install` writes to: GOBIN when set, otherwise `$GOPATH/bin`. Added to the PATH by the action.'
   go-root:
     description: 'The value of `go env GOROOT`.'
   go-cache:
@@ -39,11 +39,11 @@ outputs:
   go-mod-cache:
     description: 'The value of `go env GOMODCACHE`, the module cache directory.'
   go-os:
-    description: 'The value of `go env GOOS`, the target operating system in Go notation (e.g. linux, darwin, windows).'
+    description: 'The value of `go env GOOS`, the target OS in Go notation (linux, darwin, windows).'
   go-arch:
-    description: 'The value of `go env GOARCH`, the target architecture in Go notation (e.g. amd64, arm64).'
+    description: 'The value of `go env GOARCH`, the target architecture in Go notation (amd64, arm64).'
   go-tool-dir:
-    description: 'The value of `go env GOTOOLDIR`, the directory holding the Go toolchain binaries such as compile, link and vet.'
+    description: 'The value of `go env GOTOOLDIR`, the directory holding the toolchain binaries (compile, link, vet).'
 runs:
   using: 'node24'
   main: 'dist/setup/index.js'
