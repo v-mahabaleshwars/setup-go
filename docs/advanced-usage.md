@@ -443,7 +443,7 @@ jobs:
       - run: go install github.com/example/tool@latest
       - run: tool --version # the action puts $GOPATH/bin on the PATH
       - name: Cache the installed tool
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.setup-go.outputs.go-bin-path }}
           key: tools-${{ steps.setup-go.outputs.go-os }}-${{ steps.setup-go.outputs.go-arch }}-${{ steps.setup-go.outputs.go-version }}
