@@ -100293,11 +100293,11 @@ async function run() {
         else {
             core_info('[warning]go-version input was not specified. The action will try to use pre-installed version.');
         }
+        const added = await addBinToPath();
+        core_debug(`add bin ${added}`);
         const goPath = await which('go');
         const goVersion = (external_child_process_default().execSync(`${goPath} version`) || '').toString();
         const goEnvJson = readGoEnv(goPath);
-        const added = await addBinToPath(goEnvJson);
-        core_debug(`add bin ${added}`);
         if (cache && isCacheFeatureAvailable()) {
             const packageManager = 'default';
             const cacheDependencyPath = getInput('cache-dependency-path');
@@ -100365,10 +100365,7 @@ function goPathBin(goEnv) {
     const goPath = (goEnv['GOPATH'] ?? '').split((external_path_default()).delimiter)[0].trim();
     return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
-function isSamePath(left, right) {
-    return Boolean(left && right) && external_path_default().relative(left, right) === '';
-}
-async function addBinToPath(goEnv) {
+async function addBinToPath() {
     let added = false;
     const g = await which('go');
     core_debug(`which go :${g}:`);
@@ -100376,22 +100373,21 @@ async function addBinToPath(goEnv) {
         core_debug('go not in the path');
         return added;
     }
-    const env = goEnv ?? { GOPATH: external_child_process_default().execSync('go env GOPATH').toString() };
-    const gpBin = goPathBin(env);
-    if (gpBin) {
-        core_debug(`go bin path :${gpBin}:`);
-        if (!external_fs_default().existsSync(gpBin)) {
+    const buf = external_child_process_default().execSync('go env GOPATH');
+    if (buf.length > 1) {
+        const gp = buf.toString().trim();
+        core_debug(`go env GOPATH :${gp}:`);
+        if (!external_fs_default().existsSync(gp)) {
             // some of the hosted images have go install but not profile dir
-            core_debug(`creating ${gpBin}`);
-            await mkdirP(gpBin);
+            core_debug(`creating ${gp}`);
+            await mkdirP(gp);
         }
-        addPath(gpBin);
-        added = true;
-    }
-    const goBin = env['GOBIN'];
-    if (goBin && !isSamePath(goBin, gpBin)) {
-        core_debug(`GOBIN path :${goBin}:`);
-        addPath(goBin);
+        const bp = external_path_default().join(gp, 'bin');
+        if (!external_fs_default().existsSync(bp)) {
+            core_debug(`creating ${bp}`);
+            await mkdirP(bp);
+        }
+        addPath(bp);
         added = true;
     }
     return added;

@@ -72,12 +72,12 @@ export async function run() {
       );
     }
 
+    const added = await addBinToPath();
+    core.debug(`add bin ${added}`);
+
     const goPath = await io.which('go');
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     const goEnvJson = readGoEnv(goPath);
-
-    const added = await addBinToPath(goEnvJson);
-    core.debug(`add bin ${added}`);
 
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
@@ -170,13 +170,7 @@ function goPathBin(goEnv: Record<string, string>): string {
   return goPath ? path.join(goPath, 'bin') : '';
 }
 
-function isSamePath(left: string, right: string): boolean {
-  return Boolean(left && right) && path.relative(left, right) === '';
-}
-
-export async function addBinToPath(
-  goEnv?: Record<string, string>
-): Promise<boolean> {
+export async function addBinToPath(): Promise<boolean> {
   let added = false;
   const g = await io.which('go');
   core.debug(`which go :${g}:`);
@@ -185,28 +179,25 @@ export async function addBinToPath(
     return added;
   }
 
-  const env = goEnv ?? {GOPATH: cp.execSync('go env GOPATH').toString()};
-  const gpBin = goPathBin(env);
-
-  if (gpBin) {
-    core.debug(`go bin path :${gpBin}:`);
-    if (!fs.existsSync(gpBin)) {
+  const buf = cp.execSync('go env GOPATH');
+  if (buf.length > 1) {
+    const gp = buf.toString().trim();
+    core.debug(`go env GOPATH :${gp}:`);
+    if (!fs.existsSync(gp)) {
       // some of the hosted images have go install but not profile dir
-      core.debug(`creating ${gpBin}`);
-      await io.mkdirP(gpBin);
+      core.debug(`creating ${gp}`);
+      await io.mkdirP(gp);
     }
 
-    core.addPath(gpBin);
+    const bp = path.join(gp, 'bin');
+    if (!fs.existsSync(bp)) {
+      core.debug(`creating ${bp}`);
+      await io.mkdirP(bp);
+    }
+
+    core.addPath(bp);
     added = true;
   }
-
-  const goBin = env['GOBIN'];
-  if (goBin && !isSamePath(goBin, gpBin)) {
-    core.debug(`GOBIN path :${goBin}:`);
-    core.addPath(goBin);
-    added = true;
-  }
-
   return added;
 }
 

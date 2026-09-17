@@ -46,11 +46,9 @@ jest.unstable_mockModule('os', () => ({...osExports, default: osExports}));
 const realPath = (await import('path')).default;
 const pathJoinMock = jest.fn();
 const pathDelimiterMock = jest.fn<() => string>();
-const pathRelativeMock = jest.fn<typeof realPath.relative>();
 const pathExports = {
   ...realPath,
   join: pathJoinMock,
-  relative: pathRelativeMock,
   get delimiter() {
     return pathDelimiterMock();
   }
@@ -184,11 +182,6 @@ describe('setup-go', () => {
       os['platform'] == 'win32'
         ? realPath.win32.delimiter
         : realPath.posix.delimiter
-    );
-    pathRelativeMock.mockImplementation((from: string, to: string) =>
-      os['platform'] == 'win32'
-        ? realPath.win32.relative(from, to)
-        : realPath.posix.relative(from, to)
     );
 
     // @actions/tool-cache
@@ -666,159 +659,6 @@ describe('setup-go', () => {
 
     const added = await main.addBinToPath();
     expect(added).toBeTruthy();
-  });
-
-  it('reuses an already resolved GOPATH instead of shelling out again', async () => {
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => true);
-
-    const added = await main.addBinToPath({GOPATH: '/Users/testuser/go'});
-    expect(added).toBeTruthy();
-    expect(execSpy).not.toHaveBeenCalled();
-  });
-
-  it('adds bin of the first GOPATH entry only', async () => {
-    os.platform = 'linux';
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    const added = await main.addBinToPath({
-      GOPATH: '/Users/testuser/go:/Users/testuser/other'
-    });
-    expect(added).toBeTruthy();
-    expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/go/bin');
-    expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/other/bin');
-  });
-
-  it('keeps $GOPATH/bin on the path and adds GOBIN after it', async () => {
-    os.platform = 'linux';
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    const added = await main.addBinToPath({
-      GOPATH: '/Users/testuser/go',
-      GOBIN: '/Users/testuser/bin'
-    });
-    expect(added).toBeTruthy();
-    expect(mkdirpSpy).toHaveBeenCalledWith('/Users/testuser/go/bin');
-    expect(mkdirpSpy).not.toHaveBeenCalledWith('/Users/testuser/bin');
-    expect(
-      cnSpy.mock.calls
-        .map(([line]) => String(line))
-        .filter(line => line.startsWith('::add-path::'))
-    ).toEqual([
-      `::add-path::/Users/testuser/go/bin${osm.EOL}`,
-      `::add-path::/Users/testuser/bin${osm.EOL}`
-    ]);
-  });
-
-  it('fails when $GOPATH/bin cannot be created', async () => {
-    os.platform = 'linux';
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    existsSpy.mockImplementation(() => false);
-    mkdirpSpy.mockImplementation(async () => {
-      throw new Error('EACCES: permission denied');
-    });
-
-    await expect(
-      main.addBinToPath({GOPATH: '/Users/testuser/go'})
-    ).rejects.toThrow('EACCES: permission denied');
-  });
-
-  it('adds $GOPATH/bin once when GOBIN reports the same directory', async () => {
-    os.platform = 'linux';
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    const added = await main.addBinToPath({
-      GOPATH: '/Users/testuser/go',
-      GOBIN: '/Users/testuser/go/bin'
-    });
-    expect(added).toBeTruthy();
-    expect(
-      cnSpy.mock.calls
-        .map(([line]) => String(line))
-        .filter(line => line.startsWith('::add-path::'))
-    ).toEqual([`::add-path::/Users/testuser/go/bin${osm.EOL}`]);
-  });
-
-  it('ignores a trailing separator when comparing GOBIN to $GOPATH/bin', async () => {
-    os.platform = 'linux';
-    whichSpy.mockImplementation(async () => {
-      return '/usr/local/go/bin/go';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    await main.addBinToPath({
-      GOPATH: '/Users/testuser/go',
-      GOBIN: '/Users/testuser/go/bin/'
-    });
-    expect(
-      cnSpy.mock.calls
-        .map(([line]) => String(line))
-        .filter(line => line.startsWith('::add-path::'))
-    ).toEqual([`::add-path::/Users/testuser/go/bin${osm.EOL}`]);
-  });
-
-  it('compares GOBIN to $GOPATH/bin case-insensitively on Windows', async () => {
-    os.platform = 'win32';
-    whichSpy.mockImplementation(async () => {
-      return 'C:\\hostedtoolcache\\go\\bin\\go.exe';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    await main.addBinToPath({
-      GOPATH: 'C:\\Users\\runneradmin\\go',
-      GOBIN: 'c:\\users\\runneradmin\\go\\bin'
-    });
-    expect(
-      cnSpy.mock.calls
-        .map(([line]) => String(line))
-        .filter(line => line.startsWith('::add-path::'))
-    ).toEqual([`::add-path::C:\\Users\\runneradmin\\go\\bin${osm.EOL}`]);
-  });
-
-  it('ignores mixed separators when comparing GOBIN on Windows', async () => {
-    os.platform = 'win32';
-    whichSpy.mockImplementation(async () => {
-      return 'C:\\hostedtoolcache\\go\\bin\\go.exe';
-    });
-
-    mkdirpSpy.mockImplementation(async () => {});
-    existsSpy.mockImplementation(() => false);
-
-    await main.addBinToPath({
-      GOPATH: 'C:\\Users\\runneradmin\\go',
-      GOBIN: 'C:/Users/runneradmin/go/bin'
-    });
-    expect(
-      cnSpy.mock.calls
-        .map(([line]) => String(line))
-        .filter(line => line.startsWith('::add-path::'))
-    ).toEqual([`::add-path::C:\\Users\\runneradmin\\go\\bin${osm.EOL}`]);
   });
 
   describe('go env outputs', () => {

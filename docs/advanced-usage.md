@@ -419,7 +419,7 @@ The action reads the Go environment after Go is installed and exposes the most c
 | --- | --- | --- |
 | `go-path` | `GOPATH` | |
 | `go-bin` | `GOBIN` | Go 1.27+ reports the effective install directory (see [go.dev/issue/23439](https://go.dev/issue/23439)); earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | Where `go install` writes in module mode: `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry. Added to the `PATH` |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | Where `go install` writes in module mode: `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry |
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
@@ -441,7 +441,7 @@ jobs:
         with:
           go-version: '1.25.5'
       - run: go install github.com/example/tool@latest
-      - run: tool --version # go-bin-path is on the PATH, no separator or .exe handling needed
+      - run: tool --version # the action puts $GOPATH/bin on the PATH
       - name: Cache the installed tool
         uses: actions/cache@v5
         with:
