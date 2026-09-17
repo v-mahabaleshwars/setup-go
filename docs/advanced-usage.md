@@ -419,7 +419,7 @@ The action reads the Go environment after Go is installed and exposes the most c
 | --- | --- | --- |
 | `go-path` | `GOPATH` | |
 | `go-bin` | `GOBIN` | Go 1.27+ reports the effective install directory (see [go.dev/issue/23439](https://go.dev/issue/23439)); earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The directory `go install` writes to, on every Go version. Added to the `PATH`. Uses `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | Where `go install` writes in module mode: `GOBIN` when Go reports one, otherwise `bin` under the first `GOPATH` entry. Added to the `PATH` |
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
@@ -452,7 +452,7 @@ jobs:
 Quote `go-bin-path` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
-> These outputs need Go 1.9 or newer (`go env -json`). On older releases they are left unset and the action does not fail. `go-cache` additionally needs Go 1.10 and `go-mod-cache` needs Go 1.15; before those releases the variables do not exist and the outputs are empty.
+> These outputs need Go 1.9 or newer (`go env -json`); on older releases they are left unset and the action does not fail. `go-cache` needs Go 1.10 and `go-mod-cache` needs Go 1.15.
 
 ## Custom download URL
 

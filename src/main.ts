@@ -171,7 +171,6 @@ function goPathBin(goEnv: Record<string, string>): string {
 }
 
 function isSamePath(left: string, right: string): boolean {
-  // path.relative normalises separators, trailing slashes and drive letter case
   return Boolean(left && right) && path.relative(left, right) === '';
 }
 
@@ -203,7 +202,6 @@ export async function addBinToPath(
 
   const goBin = env['GOBIN'];
   if (goBin && !isSamePath(goBin, gpBin)) {
-    // 'go install' creates GOBIN on demand, so it only needs to be on the PATH
     core.debug(`GOBIN path :${goBin}:`);
     core.addPath(goBin);
     added = true;

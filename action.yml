@@ -29,9 +29,9 @@ outputs:
   go-path:
     description: 'The value of `go env GOPATH`.'
   go-bin:
-    description: 'The value of `go env GOBIN`. Go 1.27+ reports the effective install directory, earlier releases report an empty value unless GOBIN is set; prefer `go-bin-path`.'
+    description: 'The value of `go env GOBIN`. Go 1.27+ reports the effective install directory, earlier releases are empty unless GOBIN is set; prefer `go-bin-path`.'
   go-bin-path:
-    description: 'The directory `go install` writes to: GOBIN when set, otherwise `$GOPATH/bin`. Added to the PATH by the action.'
+    description: 'Where `go install` writes in module mode: `GOBIN` when Go reports one, otherwise `bin` under the first GOPATH entry. Added to the PATH.'
   go-root:
     description: 'The value of `go env GOROOT`.'
   go-cache:

@@ -741,7 +741,6 @@ describe('setup-go', () => {
   });
 
   it('adds $GOPATH/bin once when GOBIN reports the same directory', async () => {
-    // Go 1.27+ reports the effective install directory in GOBIN, see go.dev/issue/23439
     os.platform = 'linux';
     whichSpy.mockImplementation(async () => {
       return '/usr/local/go/bin/go';

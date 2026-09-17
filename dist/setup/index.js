@@ -100366,7 +100366,6 @@ function goPathBin(goEnv) {
     return goPath ? external_path_default().join(goPath, 'bin') : '';
 }
 function isSamePath(left, right) {
-    // path.relative normalises separators, trailing slashes and drive letter case
     return Boolean(left && right) && external_path_default().relative(left, right) === '';
 }
 async function addBinToPath(goEnv) {
@@ -100391,7 +100390,6 @@ async function addBinToPath(goEnv) {
     }
     const goBin = env['GOBIN'];
     if (goBin && !isSamePath(goBin, gpBin)) {
-        // 'go install' creates GOBIN on demand, so it only needs to be on the PATH
         core_debug(`GOBIN path :${goBin}:`);
         addPath(goBin);
         added = true;
