@@ -338,6 +338,18 @@ jobs:
         with:
           go-version: '1.25.5'
           cache: false
+      # Capture Go cache locations
+      - name: Set Go cache variables (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" >> $GITHUB_ENV
+          echo "GO_BUILD_CACHE=$(go env GOCACHE)" >> $GITHUB_ENV
+      - name: Set Go cache variables (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          echo "GO_MOD_CACHE=$(go env GOMODCACHE)" | Out-File $env:GITHUB_ENV -Append
+          echo "GO_BUILD_CACHE=$(go env GOCACHE)"   | Out-File $env:GITHUB_ENV -Append
       # Normalize runner.arch to lowercase to ensure consistent cache keys
       - name: Normalize runner architecture (Linux/macOS)
         if: runner.os != 'Windows'
@@ -358,8 +370,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: |
-            ${{ steps.setup-go.outputs.go-mod-cache }}
-            ${{ steps.setup-go.outputs.go-cache }}
+            ${{ env.GO_MOD_CACHE }}
+            ${{ env.GO_BUILD_CACHE }}
           key: setup-go-${{ runner.os }}-${{ env.ARCH }}-${{ env.CACHE_OS_SUFFIX }}go-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('**/go.mod') }}
       - name: Download modules
         run: go mod download
@@ -417,10 +429,10 @@ The action reads the Go environment after Go is installed and exposes the most c
 
 | Output | `go env` variable | Notes |
 | --- | --- | --- |
-| `go-path` | `GOPATH` | |
+| `go-path` | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
 | `go-bin` | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
 | `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The default `go install` directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
-| `go-root` | `GOROOT` | |
+| `go-root` | `GOROOT` | Installation directory of the Go toolchain in use |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
 | `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
@@ -428,25 +440,12 @@ The action reads the Go environment after Go is installed and exposes the most c
 | `go-tool-dir` | `GOTOOLDIR` | Holds `compile`, `link`, `vet` and the other toolchain binaries |
 
 ```yaml
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        id: setup-go
-        with:
-          go-version: '1.25.5'
-      - run: go install github.com/example/tool@latest
-      - run: tool --version # the action puts $GOPATH/bin on the PATH
-      - name: Cache the installed tool
-        uses: actions/cache@v6
-        with:
-          path: ${{ steps.setup-go.outputs.go-bin-path }}
-          key: tools-${{ steps.setup-go.outputs.go-os }}-${{ steps.setup-go.outputs.go-arch }}-${{ steps.setup-go.outputs.go-version }}
+steps:
+  - uses: actions/setup-go@v7
+    id: setup-go
+    with:
+      go-version: '1.25.5'
+  - run: echo "Modules are cached in ${{ steps.setup-go.outputs.go-mod-cache }}"
 ```
 
 Quote `go-bin-path` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
