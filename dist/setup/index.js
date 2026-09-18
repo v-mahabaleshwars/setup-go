@@ -100670,7 +100670,7 @@ function readGoEnv(goPath) {
         return parsed;
     }
     catch (error) {
-        warning(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
+        core_info(`Unable to read 'go env -json', the Go environment outputs will not be set: ${error.message}`);
         return undefined;
     }
 }

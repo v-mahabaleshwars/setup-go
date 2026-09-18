@@ -451,7 +451,7 @@ steps:
 Quote `go-bin-path` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
-> These outputs need Go 1.9 or newer (`go env -json`); on older releases they are left unset and the action does not fail. `go-cache` needs Go 1.10 and `go-mod-cache` needs Go 1.15.
+> These outputs need Go 1.9 or newer (`go env -json`); on older releases the action logs a message, leaves them unset and does not fail. `go-cache` needs Go 1.10 and `go-mod-cache` needs Go 1.15.
 
 ## Custom download URL
 

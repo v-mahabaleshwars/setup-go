@@ -676,9 +676,10 @@ describe('setup-go', () => {
       });
 
       expect(main.readGoEnv('/usr/local/go/bin/go')).toBeUndefined();
-      expect(warningSpy).toHaveBeenCalledWith(
+      expect(logSpy).toHaveBeenCalledWith(
         expect.stringContaining('flag provided but not defined: -json')
       );
+      expect(warningSpy).not.toHaveBeenCalled();
     });
 
     it('returns undefined when the output is not valid JSON', () => {

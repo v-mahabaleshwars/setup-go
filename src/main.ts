@@ -143,7 +143,7 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
 
     return parsed as Record<string, string>;
   } catch (error) {
-    core.warning(
+    core.info(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
         (error as Error).message
       }`
