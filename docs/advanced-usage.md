@@ -418,7 +418,7 @@ The action reads the Go environment after Go is installed and exposes the most c
 | Output | `go env` variable | Notes |
 | --- | --- | --- |
 | `go-path` | `GOPATH` | |
-| `go-bin` | `GOBIN` | Go 1.27+ reports the effective install directory (see [go.dev/issue/23439](https://go.dev/issue/23439)); earlier releases are empty unless `GOBIN` is set |
+| `go-bin` | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
 | `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The default `go install` directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
 | `go-root` | `GOROOT` | |
 | `go-cache` | `GOCACHE` | Build cache directory |
