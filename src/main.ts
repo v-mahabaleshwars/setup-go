@@ -85,6 +85,10 @@ export async function run() {
     const goVersion = (cp.execSync(`${goPath} version`) || '').toString();
     const goEnvJson = readGoEnv(goPath);
 
+    if (goEnvJson) {
+      setGoEnvOutputs(goEnvJson);
+    }
+
     if (cache && isCacheFeatureAvailable()) {
       const packageManager = 'default';
       const cacheDependencyPath = core.getInput('cache-dependency-path');
@@ -116,10 +120,6 @@ export async function run() {
     const goEnv = (cp.execSync(`${goPath} env`) || '').toString();
     core.info(goEnv);
     core.endGroup();
-
-    if (goEnvJson) {
-      setGoEnvOutputs(goEnvJson);
-    }
   } catch (error) {
     core.setFailed((error as Error).message);
   }
@@ -143,7 +143,7 @@ export function readGoEnv(goPath: string): Record<string, string> | undefined {
 
     return parsed as Record<string, string>;
   } catch (error) {
-    core.info(
+    core.warning(
       `Unable to read 'go env -json', the Go environment outputs will not be set: ${
         (error as Error).message
       }`

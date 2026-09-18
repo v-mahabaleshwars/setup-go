@@ -31,7 +31,7 @@ outputs:
   go-bin:
     description: 'The value of `go env GOBIN`. Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set. Prefer `go-bin-path`.'
   go-bin-path:
-    description: 'The default `go install` directory: `GOBIN`, otherwise `bin` under the first GOPATH entry.'
+    description: 'The base Go binary directory: `GOBIN`, otherwise `bin` under the first GOPATH entry.'
   go-root:
     description: 'The value of `go env GOROOT`.'
   go-cache:
