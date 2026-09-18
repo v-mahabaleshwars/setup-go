@@ -425,13 +425,13 @@ jobs:
 
 ### Go environment outputs
 
-The action reads the Go environment after Go is installed and exposes the most commonly needed variables as outputs, so workflows don't have to shell out to `go env` themselves. The same expression then works on Linux, macOS, and Windows without duplicated `bash`/`pwsh` steps.
+Once Go is on the `PATH`, the action exposes the most commonly needed `go env` variables as outputs, so workflows don't have to query them in duplicated `bash`/`pwsh` steps — one expression works on Linux, macOS, and Windows. The values are a snapshot from setup time: anything a later step changes, such as setting `GOOS`/`GOARCH` to cross-compile, is not reflected.
 
 | Output | `go env` variable | Notes |
 | --- | --- | --- |
 | `go-path` | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
 | `go-bin` | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The default `go install` directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The base Go binary directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
 | `go-root` | `GOROOT` | Installation directory of the Go toolchain in use |
 | `go-cache` | `GOCACHE` | Build cache directory |
 | `go-mod-cache` | `GOMODCACHE` | Module cache directory |
