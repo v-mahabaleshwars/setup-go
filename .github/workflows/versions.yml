@@ -56,17 +56,35 @@ jobs:
         uses: ./
         with:
           go-version: stable
-      - name: Show Go environment outputs
+      - name: Verify Go environment outputs
+        shell: bash
+        env:
+          OUTPUT_GOPATH: ${{ steps.setup-go.outputs.GOPATH }}
+          OUTPUT_GOBIN: ${{ steps.setup-go.outputs.GOBIN }}
+          OUTPUT_GOROOT: ${{ steps.setup-go.outputs.GOROOT }}
+          OUTPUT_GOCACHE: ${{ steps.setup-go.outputs.GOCACHE }}
+          OUTPUT_GOMODCACHE: ${{ steps.setup-go.outputs.GOMODCACHE }}
+          OUTPUT_GOOS: ${{ steps.setup-go.outputs.GOOS }}
+          OUTPUT_GOARCH: ${{ steps.setup-go.outputs.GOARCH }}
+          OUTPUT_GOTOOLDIR: ${{ steps.setup-go.outputs.GOTOOLDIR }}
+          OUTPUT_GO_BIN_PATH: ${{ steps.setup-go.outputs.go-bin-path }}
         run: |
-          echo "go-path:      ${{ steps.setup-go.outputs.go-path }}"
-          echo "go-bin:       ${{ steps.setup-go.outputs.go-bin }}"
-          echo "go-bin-path:  ${{ steps.setup-go.outputs.go-bin-path }}"
-          echo "go-root:      ${{ steps.setup-go.outputs.go-root }}"
-          echo "go-cache:     ${{ steps.setup-go.outputs.go-cache }}"
-          echo "go-mod-cache: ${{ steps.setup-go.outputs.go-mod-cache }}"
-          echo "go-os:        ${{ steps.setup-go.outputs.go-os }}"
-          echo "go-arch:      ${{ steps.setup-go.outputs.go-arch }}"
-          echo "go-tool-dir:  ${{ steps.setup-go.outputs.go-tool-dir }}"
+          failed=0
+          for name in GOPATH GOBIN GOROOT GOCACHE GOMODCACHE GOOS GOARCH GOTOOLDIR; do
+            got="$(printenv "OUTPUT_${name}" || true)"
+            want="$(go env "$name")"
+            echo "${name}: ${got}"
+            if [ "$got" != "$want" ]; then
+              echo "  expected from go env ${name}: ${want}"
+              failed=1
+            fi
+          done
+          echo "go-bin-path: ${OUTPUT_GO_BIN_PATH}"
+          if [ -z "${OUTPUT_GO_BIN_PATH}" ]; then
+            echo "  expected go-bin-path to be set"
+            failed=1
+          fi
+          exit "$failed"
 
   aliases-arch:
     runs-on: ${{ matrix.os }}

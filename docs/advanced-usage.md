@@ -425,19 +425,24 @@ jobs:
 
 ### Go environment outputs
 
-Once Go is on the `PATH`, the action exposes the most commonly needed `go env` variables as outputs, so workflows don't have to query them in duplicated `bash`/`pwsh` steps — one expression works on Linux, macOS, and Windows. The values are a snapshot from setup time: anything a later step changes, such as setting `GOOS`/`GOARCH` to cross-compile, is not reflected.
+Once Go is on the `PATH`, the action exposes the most commonly needed `go env` variables as outputs, so workflows don't have to query them in duplicated `bash`/`pwsh` steps — one expression works on Linux, macOS, and Windows. Each one keeps the name `go env` prints, so `go env GOMODCACHE` on the runner and `outputs.GOMODCACHE` refer to the same thing. The values are a snapshot from setup time: anything a later step changes, such as setting `GOOS`/`GOARCH` to cross-compile, is not reflected.
 
-| Output | `go env` variable | Notes |
-| --- | --- | --- |
-| `go-path` | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
-| `go-bin` | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The base Go binary directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
-| `go-root` | `GOROOT` | Installation directory of the Go toolchain in use |
-| `go-cache` | `GOCACHE` | Build cache directory |
-| `go-mod-cache` | `GOMODCACHE` | Module cache directory |
-| `go-os` | `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
-| `go-arch` | `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` or the `x64` in the action's cache key |
-| `go-tool-dir` | `GOTOOLDIR` | Holds `compile`, `link`, `vet` and the other toolchain binaries |
+| Output | Notes |
+| --- | --- |
+| `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
+| `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
+| `GOROOT` | Installation directory of the Go toolchain in use |
+| `GOCACHE` | Build cache directory |
+| `GOMODCACHE` | Module cache directory |
+| `GOOS` | Go notation (`linux`, `darwin`, `windows`), unlike `runner.os` |
+| `GOARCH` | Go notation (`amd64`, `arm64`), unlike `runner.arch` or the `x64` in the action's cache key |
+| `GOTOOLDIR` | Holds `compile`, `link`, `vet` and the other toolchain binaries |
+
+One further value is computed by the action rather than read from `go env`, so it keeps the kebab-case naming the action's other outputs use:
+
+| Output | Notes |
+| --- | --- |
+| `go-bin-path` | `GOBIN` if set, otherwise `bin` under the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
 
 ```yaml
 steps:
@@ -445,13 +450,13 @@ steps:
     id: setup-go
     with:
       go-version: '1.25.5'
-  - run: echo "Modules are cached in ${{ steps.setup-go.outputs.go-mod-cache }}"
+  - run: echo "Modules are cached in ${{ steps.setup-go.outputs.GOMODCACHE }}"
 ```
 
 Quote `go-bin-path` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
-> These outputs need Go 1.9 or newer (`go env -json`); on older releases the action logs a message, leaves them unset and does not fail. `go-cache` needs Go 1.10 and `go-mod-cache` needs Go 1.15.
+> These outputs need Go 1.9 or newer (`go env -json`); on older releases the action logs a message, leaves them unset and does not fail. `GOCACHE` needs Go 1.10 and `GOMODCACHE` needs Go 1.15.
 
 ## Custom download URL
 
