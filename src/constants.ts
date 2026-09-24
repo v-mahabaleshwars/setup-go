@@ -5,7 +5,7 @@ export enum State {
 
 export enum Outputs {
   CacheHit = 'cache-hit',
-  GoBinPath = 'GOBINPATH'
+  GoBinPath = 'go-bin-path'
 }
 
 export const GO_ENV_OUTPUTS = [

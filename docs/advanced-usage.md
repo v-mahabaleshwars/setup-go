@@ -431,7 +431,7 @@ Once Go is on the `PATH`, the action exposes the most commonly needed `go env` v
 | --- | --- |
 | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
 | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
-| `GOBINPATH` | `GOBIN` or `$GOPATH/bin` | The base Go binary directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
+| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The base Go binary directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
 | `GOROOT` | Installation directory of the Go toolchain in use |
 | `GOCACHE` | Build cache directory |
 | `GOMODCACHE` | Module cache directory |
@@ -448,7 +448,7 @@ steps:
   - run: echo "Modules are cached in ${{ steps.setup-go.outputs.GOMODCACHE }}"
 ```
 
-Quote `GOBINPATH` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
+Quote `go-bin-path` in shell commands, since it may contain spaces. Variables without a dedicated output are not exposed; run `go env <NAME>` in a step when you need one.
 
 > [!NOTE]
 > These outputs need Go 1.9 or newer (`go env -json`); on older releases the action logs a message, leaves them unset and does not fail. `GOCACHE` needs Go 1.10 and `GOMODCACHE` needs Go 1.15.
