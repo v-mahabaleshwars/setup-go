@@ -95641,7 +95641,7 @@ var State;
 var Outputs;
 (function (Outputs) {
     Outputs["CacheHit"] = "cache-hit";
-    Outputs["GoBinPath"] = "go-bin-path";
+    Outputs["GoBinPath"] = "GOBINPATH";
 })(Outputs || (Outputs = {}));
 const GO_ENV_OUTPUTS = (/* unused pure expression or super */ null && ([
     'GOPATH',

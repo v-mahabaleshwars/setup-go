@@ -707,7 +707,7 @@ describe('setup-go', () => {
       main.setGoEnvOutputs(goEnv);
 
       expect(setOutputSpy).toHaveBeenCalledWith(
-        'go-bin-path',
+        'GOBINPATH',
         '/Users/testuser/go/bin'
       );
     });
@@ -716,7 +716,7 @@ describe('setup-go', () => {
       main.setGoEnvOutputs({...goEnv, GOBIN: '/Users/testuser/bin'});
 
       expect(setOutputSpy).toHaveBeenCalledWith(
-        'go-bin-path',
+        'GOBINPATH',
         '/Users/testuser/bin'
       );
     });
@@ -730,7 +730,7 @@ describe('setup-go', () => {
 
       expect(setOutputSpy).toHaveBeenCalledWith('GOPATH', GOPATH);
       expect(setOutputSpy).toHaveBeenCalledWith(
-        'go-bin-path',
+        'GOBINPATH',
         '/Users/testuser/go/bin'
       );
     });
@@ -739,7 +739,7 @@ describe('setup-go', () => {
       main.setGoEnvOutputs({});
 
       expect(setOutputSpy).toHaveBeenCalledWith('GOPATH', '');
-      expect(setOutputSpy).toHaveBeenCalledWith('go-bin-path', '');
+      expect(setOutputSpy).toHaveBeenCalledWith('GOBINPATH', '');
     });
   });
 

@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "GOPATH:       ${{ steps.setup-go.outputs.GOPATH }}"
           echo "GOBIN:        ${{ steps.setup-go.outputs.GOBIN }}"
-          echo "go-bin-path:  ${{ steps.setup-go.outputs.go-bin-path }}"
+          echo "GOBINPATH:    ${{ steps.setup-go.outputs.GOBINPATH }}"
           echo "GOROOT:       ${{ steps.setup-go.outputs.GOROOT }}"
           echo "GOCACHE:      ${{ steps.setup-go.outputs.GOCACHE }}"
           echo "GOMODCACHE:   ${{ steps.setup-go.outputs.GOMODCACHE }}"
