@@ -431,7 +431,7 @@ Once Go is on the `PATH`, the action exposes the most commonly needed `go env` v
 | --- | --- |
 | `GOPATH` | Go workspace root; `bin` and `pkg/mod` live under it |
 | `GOBIN` | Go 1.27+ reports an implicit `$GOPATH/bin` default; earlier releases are empty unless `GOBIN` is set |
-| `go-bin-path` | `GOBIN` or `$GOPATH/bin` | The base Go binary directory, using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
+| `go-bin-path` | The base Go binary directory (`GOBIN` or `$GOPATH/bin`), using the first `GOPATH` entry. Cross-compiled binaries go one level deeper, in `$GOPATH/bin/$GOOS_$GOARCH` |
 | `GOROOT` | Installation directory of the Go toolchain in use |
 | `GOCACHE` | Build cache directory |
 | `GOMODCACHE` | Module cache directory |
