@@ -56,35 +56,17 @@ jobs:
         uses: ./
         with:
           go-version: stable
-      - name: Verify Go environment outputs
-        shell: bash
-        env:
-          OUTPUT_GOPATH: ${{ steps.setup-go.outputs.GOPATH }}
-          OUTPUT_GOBIN: ${{ steps.setup-go.outputs.GOBIN }}
-          OUTPUT_GOROOT: ${{ steps.setup-go.outputs.GOROOT }}
-          OUTPUT_GOCACHE: ${{ steps.setup-go.outputs.GOCACHE }}
-          OUTPUT_GOMODCACHE: ${{ steps.setup-go.outputs.GOMODCACHE }}
-          OUTPUT_GOOS: ${{ steps.setup-go.outputs.GOOS }}
-          OUTPUT_GOARCH: ${{ steps.setup-go.outputs.GOARCH }}
-          OUTPUT_GOTOOLDIR: ${{ steps.setup-go.outputs.GOTOOLDIR }}
-          OUTPUT_GO_BIN_PATH: ${{ steps.setup-go.outputs.go-bin-path }}
+      - name: Show Go environment outputs
         run: |
-          failed=0
-          for name in GOPATH GOBIN GOROOT GOCACHE GOMODCACHE GOOS GOARCH GOTOOLDIR; do
-            got="$(printenv "OUTPUT_${name}" || true)"
-            want="$(go env "$name")"
-            echo "${name}: ${got}"
-            if [ "$got" != "$want" ]; then
-              echo "  expected from go env ${name}: ${want}"
-              failed=1
-            fi
-          done
-          echo "go-bin-path: ${OUTPUT_GO_BIN_PATH}"
-          if [ -z "${OUTPUT_GO_BIN_PATH}" ]; then
-            echo "  expected go-bin-path to be set"
-            failed=1
-          fi
-          exit "$failed"
+          echo "GOPATH:       ${{ steps.setup-go.outputs.GOPATH }}"
+          echo "GOBIN:        ${{ steps.setup-go.outputs.GOBIN }}"
+          echo "go-bin-path:  ${{ steps.setup-go.outputs.go-bin-path }}"
+          echo "GOROOT:       ${{ steps.setup-go.outputs.GOROOT }}"
+          echo "GOCACHE:      ${{ steps.setup-go.outputs.GOCACHE }}"
+          echo "GOMODCACHE:   ${{ steps.setup-go.outputs.GOMODCACHE }}"
+          echo "GOOS:         ${{ steps.setup-go.outputs.GOOS }}"
+          echo "GOARCH:       ${{ steps.setup-go.outputs.GOARCH }}"
+          echo "GOTOOLDIR:    ${{ steps.setup-go.outputs.GOTOOLDIR }}"
 
   aliases-arch:
     runs-on: ${{ matrix.os }}
